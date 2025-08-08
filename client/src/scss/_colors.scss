@@ -1,0 +1,71 @@
+// Цвета по умолчанию
+$primary: #d0322d;
+$secondary: #cccccc;
+$success: #4caf50;
+$info: #0dcaf0;
+$warning: #ffab00;
+$danger: #dc3545;
+$light: #f8f9fa;
+$dark: #212529;
+
+@import '/node_modules/bootstrap/scss/_functions';
+@import '/node_modules/bootstrap/scss/_variables';
+@import '/node_modules/bootstrap/scss/_variables-dark';
+
+// Дополнительные цвета
+$custom-colors: (
+  'blue': $blue,
+  'indigo': $indigo,
+  'pink': $pink,
+  'orange': $orange,
+  'gray': $gray-800,
+);
+
+// Добавление цветов к цветам по умолчанию
+$theme-colors: map-merge($theme-colors, $custom-colors);
+
+@import '/node_modules/bootstrap/scss/_maps';
+
+// Добавление оттенков к фону, тексту и границам
+
+// Фон. Светлая тема
+$custom-colors-bg-subtle: (
+  'blue': tint-color($blue, 80%),
+  'indigo': tint-color($indigo, 80%),
+  'pink': tint-color($pink, 80%),
+  'orange': tint-color($orange, 80%),
+  'gray': tint-color($gray-800, 80%),
+);
+
+$theme-colors-bg-subtle: map-merge($theme-colors-bg-subtle, $custom-colors-bg-subtle);
+
+// Фон. Темная тема
+$custom-colors-bg-subtle-dark: (
+  'blue': shade-color($blue, 80%),
+  'indigo': shade-color($indigo, 80%),
+  'pink': shade-color($pink, 80%),
+  'orange': shade-color($orange, 80%),
+  'gray': shade-color($gray-800, 80%),
+);
+
+$theme-colors-bg-subtle-dark: map-merge(
+  $theme-colors-bg-subtle-dark,
+  $custom-colors-bg-subtle-dark
+);
+
+// Классы
+:root,
+[data-bs-theme='light'] {
+  @each $color, $value in $custom-colors-bg-subtle {
+    .bg-#{$color}-subtle {
+      background-color: $value !important;
+    }
+  }
+}
+[data-bs-theme='dark'] {
+  @each $color, $value in $custom-colors-bg-subtle-dark {
+    .bg-#{$color}-subtle {
+      background-color: $value !important;
+    }
+  }
+}

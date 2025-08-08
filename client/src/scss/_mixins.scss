@@ -1,0 +1,34 @@
+@mixin truncate-text($lines: 4) {
+  display: -webkit-box;
+  line-clamp: $lines;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@mixin flex-column-gap($gap: 8px, $align-items: none, $justify-content: none) {
+  display: flex;
+  flex-direction: column;
+  gap: $gap;
+
+  align-items: $align-items;
+  justify-content: $justify-content;
+}
+
+@mixin flex-row-gap($gap: 8px, $align-items: none, $justify-content: none) {
+  display: flex;
+  flex-direction: row;
+  gap: $gap;
+
+  align-items: $align-items;
+  justify-content: $justify-content;
+}
+
+@mixin url-decoration-hover($decoration: underline) {
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: $decoration;
+    transition: $transition;
+  }
+}

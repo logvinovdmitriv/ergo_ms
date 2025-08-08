@@ -1,0 +1,149 @@
+// Переопределение переменных Bootstrap
+
+// Подключение отрицательных отступов
+$enable-negative-margins: true;
+
+// Фон:
+$body-bg: rgb(242, 242, 242);
+$body-bg-dark: rgb(17, 17, 17);
+
+body {
+  color: var(--color-primary-text) !important;
+}
+
+// Радиусы
+$border-radius: 0.5rem;
+$border-radius-sm: 0.5rem;
+$border-radius-lg: 0.5rem;
+
+// Карточка
+$card-border-width: none;
+$card-border-color: none;
+$card-box-shadow: 0 4px 12px 0 rgba(13, 35, 67, 0.03);
+$card-bg: var(--color-primary-background);
+
+.card {
+  box-shadow: $card-box-shadow;
+  padding: $padding-external;
+
+  transition: background-color $transition;
+}
+
+// Кнопка
+@each $color, $value in $theme-colors {
+  .btn-#{$color} {
+    box-shadow: 0 0.125rem 0.25rem 0 rgba($value, 0.4);
+  }
+}
+
+// Канвас
+$offcanvas-bg-color: $card-bg;
+
+// Таблица
+$table-color: var(--bs-card-color);
+$table-bg: var(--bs-card-bg);
+
+// Форма
+$input-border-width: 0.1rem;
+$input-focus-color: none;
+$input-focus-bg: none;
+$input-focus-box-shadow: none;
+
+.form-select:focus-within,
+.form-control:focus-within {
+  border: 1px solid $secondary !important;
+}
+
+// Переключатель
+$form-check-input-width: 1.125rem;
+$form-check-input-focus-box-shadow: none;
+
+.form-check .form-check-input,
+.form-check .form-check-input:focus-within,
+.form-switch .form-check-input,
+.form-switch .form-check-input:focus-within {
+  cursor: pointer;
+  box-shadow: 0 0 0.25rem 0 rgba(0, 0, 0, 0.16) inset;
+  border: none;
+}
+.form-switch .form-check-input:not(:checked):focus-within {
+  background-image: $form-switch-bg-image;
+}
+.form-check .form-check-input:checked,
+.form-switch .form-check-input:checked {
+  cursor: pointer;
+  box-shadow: 0 0.125rem 0.25rem 0 rgba($primary, 0.4);
+  border: none;
+}
+
+// Шкала прогресса
+$progress-height: 0.5rem;
+
+.progress {
+  overflow: initial !important;
+}
+.progress-bar {
+  box-shadow: 0 2px 4px 0 rgba($primary, 0.4) !important;
+}
+
+// Выпадающее окно
+$dropdown-border-width: none;
+$dropdown-border-color: none;
+$dropdown-box-shadow: 0 0.25rem 0.75rem 0 rgba(34, 48, 62, 0.14);
+$dropdown-bg: var(--bs-card-bg);
+
+$dropdown-link-active-color: var(--bs-primary);
+$dropdown-link-active-bg: var(--bs-primary-bg-subtle);
+
+.dropdown-menu {
+  box-shadow: $dropdown-box-shadow;
+}
+
+// Анимация
+.dropdown .dropdown-menu,
+.dropdown-center .dropdown-menu {
+  transition:
+    max-height 0.3s,
+    opacity 0.2s 0.1s,
+    visibility 0s 0.3s;
+
+  max-height: 0;
+  display: block;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.dropdown .dropdown-menu-end {
+  inset: 0 0 auto auto;
+  transform: translate(0px, 40px);
+}
+
+.dropdown .dropdown-menu.show,
+.dropdown-center .dropdown-menu.show {
+  transition:
+    max-height 0.3s,
+    opacity 0.2s,
+    visibility 0s;
+
+  max-height: 190px;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+}
+
+.dropdown .dropdown-menu .dropdown-item,
+.dropdown-center .dropdown-menu .dropdown-item {
+  opacity: 0;
+  transform: translateY(-10px);
+
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
+}
+
+.dropdown .dropdown-menu.show .dropdown-item,
+.dropdown-center .dropdown-menu.show .dropdown-item {
+  opacity: 1;
+  transform: translateY(0);
+}

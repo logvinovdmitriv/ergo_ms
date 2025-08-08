@@ -1,0 +1,377 @@
+{
+  "menuSections": [
+    {
+      "icon": "CircleUserRound",
+      "routeName": "User",
+      "title": "Личный кабинет",
+      "list": [
+        { 
+          "routeName": "Account", 
+          "name": "Профиль"
+        },
+        { 
+          "routeName": "SecuritySettings", 
+          "name": "Безопасность"
+        }
+      ]
+    },
+    {
+      "icon": "UserCog",
+      "routeName": "Settings",
+      "title": "Настройки сайта",
+      "children": [
+        {
+          "icon": "KeySquare",
+          "routeName": "AdminPanel",
+          "name": "Админ-панель",
+          "children": [
+            { 
+              "routeName": "UsersPanel", 
+              "name": "Пользователи"
+            },
+            { 
+              "routeName": "CategoriesPanel", 
+              "name": "Категории"
+            },
+            { 
+              "routeName": "GroupsPanel", 
+              "name": "Группы"
+            },
+            { 
+              "routeName": "PermissionsPanel", 
+              "name": "Права"
+            },
+            { 
+              "routeName": "LiminationPanel", 
+              "name": "Ограничения"
+            }
+          ]
+        },
+        {
+          "icon": "Braces",
+          "routeName": "Shortcodes",
+          "name": "Редактор страниц",
+          "children": [
+            { 
+              "routeName": "MainShortcodePage", 
+              "name": "Главная"
+            },
+            { 
+              "routeName": "Templates", 
+              "name": "Компоненты"
+            },
+            { 
+              "routeName": "Pages", 
+              "name": "Страницы"
+            },
+            { 
+              "routeName": "Layouts", 
+              "name": "Разметка сайта"
+            },
+            { 
+              "routeName": "PageShortcodeCategories", 
+              "name": "Категории шорткодов"
+            }
+          ]
+        },
+        {
+          "icon": "Layers",
+          "routeName": "Categories",
+          "name": "Категории страниц",
+          "children": [
+            {
+              "routeName": "PageCategories",
+              "name": "Категории"
+            },
+            {
+              "routeName": "PageCategoriesManager",
+              "name": "Создание категорий"
+            },
+            {
+              "routeName": "TagsManager",
+              "name": "Создание тегов"
+            }
+          ]
+        }
+      ],
+      "list": [
+        { 
+          "routeName": "SiteSettings", 
+          "name": "Общие настройки"
+        },
+        {
+          "routeName": "FileManager",
+          "name": "Управление файлами"
+        }
+      ]
+    },
+    {
+      "icon": "MessagesSquare",
+      "routeName": "Messenger",
+      "title": "Мессенджер"
+    },
+
+    {
+      "icon": "ClipboardList",
+      "routeName": "CRM",
+      "title": "Управление организациями",
+      "children": [
+        {
+          "icon": "Target",
+          "routeName": "StrategicProjects",
+          "name": "Стратегические проекты",
+          "children": [
+            {
+              "routeName": "StrategicProjectsDashboard",
+              "name": "Дашборд"
+            },
+            {
+              "routeName": "ProgramTopics",
+              "name": "Темы программы развития"
+            },
+            {
+              "routeName": "MyProjects",
+              "name": "Мои проекты"
+            },
+            {
+              "routeName": "ImportProgram",
+              "name": "Импорт программы"
+            },
+            {
+              "routeName": "ProjectReports",
+              "name": "Отчеты и аналитика"
+            },
+            {
+              "routeName": "ProjectsArchive",
+              "name": "Архив проектов"
+            },
+            {
+              "routeName": "EmployeeWorkload",
+              "name": "Занятость сотрудников"
+            },
+            {
+              "routeName": "ExpertApproval",
+              "name": "Экспертная оценка"
+            }
+          ]
+        },
+        {
+          "icon": "FolderKanban",
+          "routeName": "ProjectManagement",
+          "name": "Управление проектами",
+          "children": [
+            {
+              "routeName": "MyProjectsList",
+              "name": "Мои проекты"
+            },
+            {
+              "routeName": "ProjectCalendar",
+              "name": "Календарь задач"
+            },
+            {
+              "routeName": "KanbanBoard",
+              "name": "Доска задач"
+            },
+            {
+              "routeName": "ProjectsAndTasksManagement",
+              "name": "Проекты и задачи"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "icon": "ChartSpline",
+      "routeName": "BI",
+      "title": "BI",
+      "list": [
+        {
+          "name": "Датасеты",
+          "page": "datasets",
+          "isOffcanvas": true
+        },
+        {
+          "name": "Подключения",
+          "page": "connections",
+          "isOffcanvas": true
+        },
+        {
+          "name": "Чарты",
+          "page": "charts",
+          "isOffcanvas": true
+        }
+        ,
+        {
+          "name": "Дашборды",
+          "page": "dashboards",
+          "isOffcanvas": true
+        }
+      ]
+    },
+    {
+      "icon": "ChartCandlestick",
+      "routeName": "EducationAnalyticModule",
+      "title": "Учебная аналитика",
+      "list": [
+        { 
+          "routeName": "MainPage", 
+          "name": "Общее"
+        },
+        { 
+          "routeName": "StatsPage", 
+          "name": "Статистика"
+        },
+        { 
+          "routeName": "LearningTrackPage", 
+          "name": "Траектория"
+        },
+        { 
+          "routeName": "ReportsPage", 
+          "name": "Отчёты"
+        },
+        { 
+          "routeName": "ProfilePage", 
+          "name": "Профиль"
+        },
+        { 
+          "routeName": "AdminPanelPage", 
+          "name": "Админ-панель"
+        },
+        { 
+          "routeName": "SuperUserPage", 
+          "name": "SAdmin"
+        }
+      ]
+    },
+    {
+      "icon": "ChartBarStacked",
+      "routeName": "ExpertSystem",
+      "title": "Анализ вакансий",
+      "list": [
+        { 
+          "routeName": "ChoiceRole", 
+          "name": "Выбор роли"
+        },
+        { 
+          "routeName": "Skills", 
+          "name": "Навыки"
+        },
+        { 
+          "routeName": "Profile", 
+          "name": "Профиль"
+        },
+        { 
+          "routeName": "Groups", 
+          "name": "Группы"
+        },
+        { 
+          "routeName": "Vacancies", 
+          "name": "Вакансии"
+        },
+        { 
+          "routeName": "Proforientation", 
+          "name": "Профориентация"
+        },
+        { 
+          "routeName": "Profession", 
+          "name": "Менеджер профессий"
+        },
+        { 
+          "routeName": "OrientationTest", 
+          "name": "Менеджер тестов"
+        },
+        { 
+          "routeName": "AllTests", 
+          "name": "Управление тестами для навыков"
+        },
+        { 
+          "routeName": "StudentCourses", 
+          "name": "Рекомендованные курсы"
+        },
+        { 
+          "routeName": "StudentsList", 
+          "name": "Студенты"
+        }
+      ]
+    },
+    {
+      "icon": "Code2",
+      "routeName": "AssetsAnalyse",
+      "title": "Анализ курсов активов"
+    },
+    {
+      "icon": "GraduationCap",
+      "routeName": "LMS",
+      "title": "Управление обучением",
+      "list": [
+        {
+          "routeName": "LMSDashboard",
+          "name": "Панель пользователя"
+        },
+        {
+          "routeName": "LMSCatalog",
+          "name": "Каталог курсов"
+        },
+        {
+          "routeName": "LMSCourses",
+          "name": "Мои курсы"
+        },
+        {
+          "routeName": "LMSCalendar",
+          "name": "Календарь"
+        },
+        {
+          "routeName": "LMSGrades",
+          "name": "Оценки"
+        },
+        {
+          "routeName": "LMSBadges",
+          "name": "Достижения"
+        },
+        {
+          "routeName": "LMSLessonsManagement",
+          "name": "Управление курсами"
+        },
+        {
+          "routeName": "LMSCategoriesAndFormats",
+          "name": "Структура курсов"
+        }
+      ]
+    },
+    {
+      "icon": "Landmark",
+      "routeName": "ErgoCityStruct",
+      "title": "Эргокаркас города",
+      "list": [
+        {
+          "routeName": "MapUpload",
+          "name": "Загрузка карт"
+        },
+        {
+          "routeName": "MyUploads",
+          "name": "Мои загрузки"
+        },
+        {
+          "routeName": "MyTasks",
+          "name": "Мои задачи"
+        }
+      ]
+    },
+    {
+      "icon": "Microscope",
+      "routeName": "PorosityAnalysis",
+      "title": "Анализ пористости",
+      "list": [
+        {
+          "routeName": "PorosityAnalysisMain",
+          "name": "Создание анализа"
+        },
+        {
+          "routeName": "PorosityAnalysisList",
+          "name": "Анализируемые образцы"
+        }
+      ]
+    }
+  ]
+} 
