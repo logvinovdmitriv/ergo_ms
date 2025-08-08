@@ -1,6 +1,4 @@
 /installation
-/api
-/client
 
 .env
 databases.yaml
