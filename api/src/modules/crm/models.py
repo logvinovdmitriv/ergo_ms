@@ -200,6 +200,12 @@ class OrganizationInvite(models.Model):
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='invites')
     email = models.EmailField(verbose_name='Email')
+    role = models.CharField(
+        max_length=20,
+        choices=OrganizationMember.ROLE_CHOICES,
+        default='member',
+        verbose_name='Роль'
+    )
     token = models.CharField(max_length=64, unique=True, editable=False)
     expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Истекает')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='Статус')

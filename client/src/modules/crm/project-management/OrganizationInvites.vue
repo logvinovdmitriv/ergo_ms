@@ -3,7 +3,8 @@
     <h2>Приглашения</h2>
     <ul>
       <li v-for="invite in invites" :key="invite.id">
-        {{ invite.organization }}
+        {{ invite.organization?.name || invite.organization }}
+        <span v-if="invite.role">({{ invite.role }})</span>
         <button @click="accept(invite.token)">Принять</button>
         <button @click="decline(invite.token)">Отклонить</button>
       </li>
