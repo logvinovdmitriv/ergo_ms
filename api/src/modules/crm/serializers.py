@@ -64,7 +64,7 @@ class OrganizationMemberSerializer(serializers.ModelSerializer):
         model = OrganizationMember
         fields = ['id', 'user', 'user_id', 'role', 'status', 'invited_by', 'invited_at', 'responded_at']
         read_only_fields = ['invited_by', 'invited_at', 'responded_at']
-
+        
 class OrganizationSerializer(serializers.ModelSerializer):
     """Сериализатор организации"""
     owner = CRMUserSerializer(read_only=True)

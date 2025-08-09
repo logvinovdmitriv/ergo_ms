@@ -188,7 +188,6 @@ class OrganizationMember(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.organization.name}"
-
 class OrganizationInvite(models.Model):
     """Приглашение в организацию"""
 
@@ -222,8 +221,7 @@ class OrganizationInvite(models.Model):
 
     def __str__(self):
         return f"{self.email} -> {self.organization.name}"
-# Модели для управления проектами и задачами
-
+      
 class Project(models.Model):
     """Общий проект (не стратегический)"""
     PROJECT_STATUS_CHOICES = [
@@ -339,7 +337,6 @@ class Task(models.Model):
     assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks', verbose_name='Исполнитель')
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_tasks', verbose_name='Создатель')
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subtasks', verbose_name='Родительская задача')
-
     # Новые поля с внешними ключами
     status_ref = models.ForeignKey(TaskStatus, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks', verbose_name='Статус (новый)')
     priority_ref = models.ForeignKey(TaskPriority, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks', verbose_name='Приоритет (новый)')

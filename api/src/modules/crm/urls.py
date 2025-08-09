@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ProjectViewSet, TaskViewSet, TaskCommentViewSet, TimeLogViewSet, UserViewSet,
     ProjectStatusViewSet, ProjectPriorityViewSet, TaskStatusViewSet, TaskPriorityViewSet,
-    OrganizationViewSet, OrganizationInviteViewSet)
+    OrganizationViewSet, OrganizationInviteViewSet
 
 router = DefaultRouter()
 router.register(r'projects', ProjectViewSet)
