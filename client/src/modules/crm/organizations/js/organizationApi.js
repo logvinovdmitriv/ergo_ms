@@ -34,6 +34,13 @@ class OrganizationApi {
     }
 
     /**
+     * Получить информацию об одной организации
+     */
+    async getOrganization(id) {
+        return await this.client.get(`/crm/organizations/${id}/`);
+    }
+
+    /**
      * Создать новую организацию
      * @param {Object} data { name, ... }
      */

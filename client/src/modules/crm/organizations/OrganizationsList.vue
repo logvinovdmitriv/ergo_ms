@@ -2,6 +2,7 @@
   <section class="card">
     <header class="card__header">
       <h2 class="card__title">Организации</h2>
+      <div class="muted">Список доступных вам организаций</div>
 
       <div class="toolbar">
         <div class="toolbar__left">

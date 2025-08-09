@@ -3,6 +3,7 @@
   <div class="page orgs-scope">
     <header class="page__header">
       <h1 class="page__title">CRM · Организации</h1>
+      <p class="muted">Управление организациями и участниками</p>
 
       <div class="page__actions">
         <router-link class="btn btn--primary" :to="{ name: 'OrganizationNew' }">

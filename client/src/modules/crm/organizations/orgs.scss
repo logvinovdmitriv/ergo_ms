@@ -26,8 +26,18 @@
 
     .inline-edit { display: inline-flex; align-items: center; gap: 8px; }
 
+    /* блок информации о конкретной организации */
+    .org-details { display: flex; flex-direction: column; gap: 24px; }
+    .org-details__meta { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 16px; }
+    .org-details__meta li { min-width: 180px; }
+    .org-details__meta label { display: block; font-size: .75rem; opacity: .7; }
+    .org-details__members h3 { font-size: 1rem; margin-bottom: 8px; }
+
     /* бейджи: оставляем размеры; цвета возьмутся из темы (если есть), иначе дефолт темы */
     .badge { font-size: .75rem; line-height: 1.2; }
+
+    /* небольшое расстояние между заголовком карточки и описанием */
+    .card__header .muted { margin-top: 4px; }
 
     /* адаптив */
     @media (max-width: 768px) {
