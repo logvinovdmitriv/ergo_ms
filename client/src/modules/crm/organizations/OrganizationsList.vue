@@ -157,7 +157,16 @@ export default {
       return organizations.value.filter(o => (o.name || '').toLowerCase().includes(term));
     });
 
-    const isOwner = (org) => org?.owner && org.owner.id === userId;
+    // методы
+    const isOwner = (o) =>
+      o?.my_role === 'owner' || String(o?.owner?.id) === String(userId.value);
+
+    async function remove(o) {
+      if (!confirm(`Удалить организацию «${o.name}»?`)) return;
+      await OrganizationApi.deleteOrganization(o.id);
+      await load();
+    }
+
     const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_role || 'member'));
 
     const startEdit = (org) => {

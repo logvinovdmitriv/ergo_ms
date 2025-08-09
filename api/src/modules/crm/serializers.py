@@ -11,7 +11,7 @@ User = get_user_model()
 
 class ProjectStatusSerializer(serializers.ModelSerializer):
     """Сериализатор статусов проектов"""
-    
+
     class Meta:
         model = ProjectStatus
         fields = ['id', 'name', 'code', 'description', 'color', 'order', 'is_active', 'is_default', 'is_final', 'created_at', 'updated_at']
@@ -20,7 +20,7 @@ class ProjectStatusSerializer(serializers.ModelSerializer):
 
 class ProjectPrioritySerializer(serializers.ModelSerializer):
     """Сериализатор приоритетов проектов"""
-    
+
     class Meta:
         model = ProjectPriority
         fields = ['id', 'name', 'code', 'description', 'color', 'level', 'is_active', 'is_default', 'created_at', 'updated_at']
@@ -29,7 +29,7 @@ class ProjectPrioritySerializer(serializers.ModelSerializer):
 
 class TaskStatusSerializer(serializers.ModelSerializer):
     """Сериализатор статусов задач"""
-    
+
     class Meta:
         model = TaskStatus
         fields = ['id', 'name', 'code', 'description', 'color', 'order', 'is_active', 'is_default', 'is_final', 'created_at', 'updated_at']
@@ -38,7 +38,7 @@ class TaskStatusSerializer(serializers.ModelSerializer):
 
 class TaskPrioritySerializer(serializers.ModelSerializer):
     """Сериализатор приоритетов задач"""
-    
+
     class Meta:
         model = TaskPriority
         fields = ['id', 'name', 'code', 'description', 'color', 'level', 'is_active', 'is_default', 'created_at', 'updated_at']
@@ -48,7 +48,7 @@ class TaskPrioritySerializer(serializers.ModelSerializer):
 class CRMUserSerializer(serializers.ModelSerializer):
     """Сериализатор пользователя"""
     full_name = serializers.CharField(source='get_full_name', read_only=True)
-    
+
     class Meta:
         model = User
         fields = ['id', 'username', 'first_name', 'last_name', 'full_name', 'email']
@@ -64,11 +64,12 @@ class OrganizationMemberSerializer(serializers.ModelSerializer):
         model = OrganizationMember
         fields = ['id', 'user', 'user_id', 'role', 'status', 'invited_by', 'invited_at', 'responded_at']
         read_only_fields = ['invited_by', 'invited_at', 'responded_at']
-        
+
 class OrganizationSerializer(serializers.ModelSerializer):
-    """Сериализатор организации"""
     owner = CRMUserSerializer(read_only=True)
     memberships = OrganizationMemberSerializer(many=True, read_only=True)
+    my_role = serializers.SerializerMethodField(read_only=True)
+    members_count = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Organization
@@ -76,10 +77,24 @@ class OrganizationSerializer(serializers.ModelSerializer):
             'id', 'name', 'slug', 'description', 'logo_url', 'industry', 'website',
             'email', 'phone', 'country', 'timezone', 'address',
             'billing_name', 'billing_vat', 'billing_address',
-            'owner', 'memberships', 'visibility', 'default_role', 'status',
+            'owner', 'memberships', 'my_role', 'members_count',
+            'visibility', 'default_role', 'status',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['slug', 'owner', 'created_at', 'updated_at']
+
+    def get_my_role(self, obj):
+        user = self.context['request'].user if 'request' in self.context else None
+        if not user or not user.is_authenticated:
+            return None
+        if obj.owner_id == user.id:
+            return 'owner'
+        rel = obj.memberships.filter(user_id=user.id, status='accepted').only('role').first()
+        return rel.role if rel else None
+
+    def get_members_count(self, obj):
+        return obj.memberships.count()
+
 
 
 class OrganizationInviteSerializer(serializers.ModelSerializer):
@@ -99,7 +114,7 @@ class ProjectMemberSerializer(serializers.ModelSerializer):
     """Сериализатор участника проекта"""
     user = CRMUserSerializer(read_only=True)
     user_id = serializers.IntegerField(write_only=True)
-    
+
     class Meta:
         model = ProjectMember
         fields = ['id', 'user', 'user_id', 'role', 'joined_at']
@@ -113,23 +128,23 @@ class ProjectSerializer(serializers.ModelSerializer):
     memberships = ProjectMemberSerializer(many=True, read_only=True)
     organization = OrganizationSerializer(read_only=True)
     organization_id = serializers.IntegerField(write_only=True, required=False)
-    
+
     # Новые поля для статусов и приоритетов
     status_ref = ProjectStatusSerializer(read_only=True)
     priority_ref = ProjectPrioritySerializer(read_only=True)
     status_ref_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     priority_ref_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
-    
+
     # Дополнительные поля
     current_status = serializers.CharField(read_only=True)
     current_priority = serializers.CharField(read_only=True)
     status_display = serializers.CharField(read_only=True)
     priority_display = serializers.CharField(read_only=True)
-    
+
     task_count = serializers.SerializerMethodField()
     completed_task_count = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Project
         fields = [
@@ -139,31 +154,31 @@ class ProjectSerializer(serializers.ModelSerializer):
             'progress', 'status_ref', 'priority_ref', 'status_ref_id', 'priority_ref_id',
             'current_status', 'current_priority', 'status_display', 'priority_display'
         ]
-    
+
     def get_task_count(self, obj):
         return obj.tasks.count()
-    
+
     def get_completed_task_count(self, obj):
         """Получить количество завершенных задач (учитываем новую и старую систему статусов)"""
         from django.db.models import Q
-        
+
         # Фильтр для новой системы статусов (status_ref.is_final = True)
         new_system_filter = Q(status_ref__is_final=True, status_ref__is_active=True)
-        
+
         # Фильтр для старой системы статусов (status = 'done')
         old_system_filter = Q(status='done')
-        
+
         return obj.tasks.filter(new_system_filter | old_system_filter).count()
-    
+
     def get_progress(self, obj):
         """Вычислить прогресс проекта в процентах"""
         total = obj.tasks.count()
         if total == 0:
             return 0
-        
+
         completed = self.get_completed_task_count(obj)
         return round((completed / total) * 100)
-    
+
     def create(self, validated_data):
         user = self.context['request'].user
         organization_id = validated_data.pop('organization_id', None)
@@ -187,7 +202,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
     owner = CRMUserSerializer(read_only=True)
     manager = CRMUserSerializer(read_only=True)
     organization = OrganizationSerializer(read_only=True)
-    
+
     # Новые поля для статусов и приоритетов
     status_ref = ProjectStatusSerializer(read_only=True)
     priority_ref = ProjectPrioritySerializer(read_only=True)
@@ -195,11 +210,11 @@ class ProjectListSerializer(serializers.ModelSerializer):
     current_priority = serializers.CharField(read_only=True)
     status_display = serializers.CharField(read_only=True)
     priority_display = serializers.CharField(read_only=True)
-    
+
     task_count = serializers.SerializerMethodField()
     completed_task_count = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Project
         fields = [
@@ -208,28 +223,28 @@ class ProjectListSerializer(serializers.ModelSerializer):
             'completed_task_count', 'progress', 'status_ref', 'priority_ref',
             'current_status', 'current_priority', 'status_display', 'priority_display'
         ]
-    
+
     def get_task_count(self, obj):
         return obj.tasks.count()
-    
+
     def get_completed_task_count(self, obj):
         """Получить количество завершенных задач (учитываем новую и старую систему статусов)"""
         from django.db.models import Q
-        
+
         # Фильтр для новой системы статусов (status_ref.is_final = True)
         new_system_filter = Q(status_ref__is_final=True, status_ref__is_active=True)
-        
+
         # Фильтр для старой системы статусов (status = 'done')
         old_system_filter = Q(status='done')
-        
+
         return obj.tasks.filter(new_system_filter | old_system_filter).count()
-    
+
     def get_progress(self, obj):
         """Вычислить прогресс проекта в процентах"""
         total = obj.tasks.count()
         if total == 0:
             return 0
-        
+
         completed = self.get_completed_task_count(obj)
         return round((completed / total) * 100)
 
@@ -237,11 +252,11 @@ class ProjectListSerializer(serializers.ModelSerializer):
 class TaskCommentSerializer(serializers.ModelSerializer):
     """Сериализатор комментария к задаче"""
     author = CRMUserSerializer(read_only=True)
-    
+
     class Meta:
         model = TaskComment
         fields = ['id', 'content', 'author', 'created_at', 'updated_at']
-    
+
     def create(self, validated_data):
         validated_data['author'] = self.context['request'].user
         return super().create(validated_data)
@@ -250,11 +265,11 @@ class TaskCommentSerializer(serializers.ModelSerializer):
 class TaskAttachmentSerializer(serializers.ModelSerializer):
     """Сериализатор прикрепленного файла"""
     uploaded_by = CRMUserSerializer(read_only=True)
-    
+
     class Meta:
         model = TaskAttachment
         fields = ['id', 'file', 'filename', 'uploaded_by', 'uploaded_at']
-    
+
     def create(self, validated_data):
         validated_data['uploaded_by'] = self.context['request'].user
         return super().create(validated_data)
@@ -263,11 +278,11 @@ class TaskAttachmentSerializer(serializers.ModelSerializer):
 class TimeLogSerializer(serializers.ModelSerializer):
     """Сериализатор учета времени"""
     user = CRMUserSerializer(read_only=True)
-    
+
     class Meta:
         model = TimeLog
         fields = ['id', 'description', 'hours', 'date', 'user', 'created_at']
-    
+
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
@@ -322,28 +337,28 @@ class TaskSerializer(serializers.ModelSerializer):
     parent = TaskListSerializer(read_only=True)
     parent_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     subtasks = TaskListSerializer(many=True, read_only=True)
-    
+
     # Новые поля для статусов и приоритетов
     status_ref = TaskStatusSerializer(read_only=True)
     priority_ref = TaskPrioritySerializer(read_only=True)
     status_ref_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     priority_ref_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
-    
+
     # Дополнительные поля
     current_status = serializers.CharField(read_only=True)
     current_priority = serializers.CharField(read_only=True)
     status_display = serializers.CharField(read_only=True)
     priority_display = serializers.CharField(read_only=True)
-    
+
     # Поля дат с дополнительной обработкой
     start_date = serializers.DateTimeField(required=False, allow_null=True)
     due_date = serializers.DateTimeField(required=False, allow_null=True)
-    
+
     comments = TaskCommentSerializer(many=True, read_only=True)
     attachments = TaskAttachmentSerializer(many=True, read_only=True)
     time_logs = TimeLogSerializer(many=True, read_only=True)
     total_time = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Task
         fields = [
@@ -354,10 +369,10 @@ class TaskSerializer(serializers.ModelSerializer):
             'status_ref', 'priority_ref', 'status_ref_id', 'priority_ref_id',
             'current_status', 'current_priority', 'status_display', 'priority_display'
         ]
-    
+
     def get_total_time(self, obj):
         return sum(log.hours for log in obj.time_logs.all())
-    
+
     def validate(self, data):
         """Дополнительная валидация данных задачи"""
         # Проверяем что дата окончания не раньше даты начала
@@ -366,9 +381,9 @@ class TaskSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Дата окончания не может быть раньше даты начала"
                 )
-        
+
         return data
-    
+
     def create(self, validated_data):
         user = self.context['request'].user
         organization_id = validated_data.pop('organization_id', None)
@@ -396,7 +411,7 @@ class TaskCalendarSerializer(serializers.ModelSerializer):
     """Сериализатор задач для календаря"""
     assignee = CRMUserSerializer(read_only=True)
     project = ProjectListSerializer(read_only=True)
-    
+
     class Meta:
         model = Task
         fields = [
@@ -409,7 +424,7 @@ class TaskKanbanSerializer(serializers.ModelSerializer):
     """Сериализатор задач для канбан доски"""
     assignee = CRMUserSerializer(read_only=True)
     project = ProjectListSerializer(read_only=True)
-    
+
     class Meta:
         model = Task
         fields = [

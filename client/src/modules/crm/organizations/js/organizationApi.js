@@ -23,7 +23,15 @@ class OrganizationApi {
   // create/update/delete
   async createOrganization(data) { return await this.client.post('/crm/organizations/', data); }
   async updateOrganization(id, data) { return await this.client.patch(`/crm/organizations/${id}/`, data); }
-  async deleteOrganization(id) { return await this.client.delete(`/crm/organizations/${id}/`); }
+// убедитесь, что этот метод есть (и baseURL = '/api'):
+  // create/update/delete
+    async deleteOrganization(id) {
+        // DRF обычно возвращает 204 No Content
+        const resp = await this.client.delete(`/crm/organizations/${id}/`);
+        return resp?.status ?? 204;
+    }
+
+
   async archiveOrganization(id) { return await this.client.post(`/crm/organizations/${id}/archive`); }
 
   // members & projects

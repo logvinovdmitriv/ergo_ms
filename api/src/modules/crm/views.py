@@ -45,23 +45,27 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         organization = serializer.save(owner=self.request.user)
-        OrganizationMember.objects.create(
+        OrganizationMember.objects.update_or_create(
             organization=organization,
             user=self.request.user,
-            role='owner',
-            status='accepted',
-            invited_by=self.request.user,
-            invited_at=timezone.now(),
-            responded_at=timezone.now()
+            defaults={
+                'role': 'owner',
+                'status': 'accepted',
+                'invited_by': self.request.user,
+                'invited_at': timezone.now(),
+                'responded_at': timezone.now()
+            }
         )
 
-    def destroy(self, request, pk=None):
-        """Удаление организации: разрешено только владельцу."""
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Удаление организации доступно только владельцу.
+        """
         organization = self.get_object()
         if organization.owner_id != request.user.id:
             return Response(status=status.HTTP_403_FORBIDDEN)
-        organization.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'])
     def invite(self, request, pk=None):
