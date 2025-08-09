@@ -267,7 +267,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     queryset = Task.objects.all()
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'priority', 'project', 'assignee', 'creator']
+    filterset_fields = ['status', 'priority', 'project', 'assignee', 'creator', 'parent']
     search_fields = ['title', 'description']
     ordering_fields = ['created_at', 'due_date', 'priority', 'kanban_order']
     ordering = ['kanban_order', '-created_at']

@@ -238,10 +238,17 @@
             <ListTodo :size="24" />
             <h2>Задачи проекта</h2>
           </div>
-          <button class="btn btn-primary" @click="createTask">
-            <Plus :size="16" />
-            <span>Добавить задачу</span>
-          </button>
+          <div class="section-actions">
+            <button class="btn btn-outline-primary" @click="toggleTaskView">
+              <GitBranch :size="16" v-if="!showTaskTree" />
+              <ListTodo :size="16" v-else />
+              <span>{{ showTaskTree ? 'Список' : 'Дерево' }}</span>
+            </button>
+            <button class="btn btn-primary" @click="createTask">
+              <Plus :size="16" />
+              <span>Добавить задачу</span>
+            </button>
+          </div>
         </div>
         
         <div class="tasks-content">
@@ -256,68 +263,76 @@
             </button>
           </div>
           
-          <!-- Таблица задач -->
-          <div v-else class="tasks-table-container">
-            <div class="table-responsive">
-              <table class="tasks-table">
-                <thead>
-                  <tr>
-                    <th>Задача</th>
-                    <th>Исполнитель</th>
-                    <th>Статус</th>
-                    <th>Приоритет</th>
-                    <th>Срок</th>
-                    <th>Действия</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="task in tasks" :key="task.id" class="task-row">
-                    <td class="task-cell">
-                      <div class="task-info">
-                        <h4 class="task-title">{{ task.title }}</h4>
-                        <p class="task-description" v-if="task.description">
-                          {{ truncateText(task.description, 100) }}
-                        </p>
-                      </div>
-                    </td>
-                    <td class="assignee-cell">
-                      <div class="assignee-info" v-if="task.assignee">
-                        <img :src="getAvatarUrl(task.assignee)" 
-                             :alt="getUserDisplayName(task.assignee)"
-                             class="assignee-avatar">
-                        <span class="assignee-name">{{ getUserDisplayName(task.assignee) }}</span>
-                      </div>
-                      <span v-else class="no-assignee">Не назначен</span>
-                    </td>
-                    <td class="status-cell">
-                      <span class="badge status-badge" :class="getTaskStatusClass(task.status)">
-                        {{ getTaskStatusText(task.status) }}
-                      </span>
-                    </td>
-                    <td class="priority-cell">
-                      <span class="badge priority-badge" :class="getPriorityClass(task.priority)">
-                        {{ getPriorityText(task.priority) }}
-                      </span>
-                    </td>
-                    <td class="due-date-cell">
-                      <span :class="getDueDateClass(task.due_date, task.status)">
-                        <Clock :size="14" />
-                        {{ formatDate(task.due_date) || '-' }}
-                      </span>
-                    </td>
-                    <td class="actions-cell">
-                      <div class="action-buttons">
-                        <button class="btn btn-edit-icon" @click="editTask(task)" title="Редактировать">
-                          <Edit :size="14" />
-                        </button>
-                        <button class="btn btn-delete-icon" @click="deleteTask(task)" title="Удалить">
-                          <Trash2 :size="14" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <!-- Таблица задач или дерево -->
+          <div v-else>
+            <div v-if="showTaskTree" class="task-tree-container">
+              <ProjectTasksTree :project="project" :tasks="tasks" />
+            </div>
+            <div v-else class="tasks-table-container">
+              <div class="table-responsive">
+                <table class="tasks-table">
+                  <thead>
+                    <tr>
+                      <th>Задача</th>
+                      <th>Исполнитель</th>
+                      <th>Статус</th>
+                      <th>Приоритет</th>
+                      <th>Срок</th>
+                      <th>Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="task in tasks" :key="task.id" class="task-row">
+                      <td class="task-cell">
+                        <div class="task-info">
+                          <h4 class="task-title">{{ task.title }}</h4>
+                          <p class="task-description" v-if="task.description">
+                            {{ truncateText(task.description, 100) }}
+                          </p>
+                        </div>
+                      </td>
+                      <td class="assignee-cell">
+                        <div class="assignee-info" v-if="task.assignee">
+                          <img :src="getAvatarUrl(task.assignee)"
+                               :alt="getUserDisplayName(task.assignee)"
+                               class="assignee-avatar">
+                          <span class="assignee-name">{{ getUserDisplayName(task.assignee) }}</span>
+                        </div>
+                        <span v-else class="no-assignee">Не назначен</span>
+                      </td>
+                      <td class="status-cell">
+                        <span class="badge status-badge" :class="getTaskStatusClass(task.status)">
+                          {{ getTaskStatusText(task.status) }}
+                        </span>
+                      </td>
+                      <td class="priority-cell">
+                        <span class="badge priority-badge" :class="getPriorityClass(task.priority)">
+                          {{ getPriorityText(task.priority) }}
+                        </span>
+                      </td>
+                      <td class="due-date-cell">
+                        <span :class="getDueDateClass(task.due_date, task.status)">
+                          <Clock :size="14" />
+                          {{ formatDate(task.due_date) || '-' }}
+                        </span>
+                      </td>
+                      <td class="actions-cell">
+                        <div class="action-buttons">
+                          <button class="btn btn-edit-icon" @click="createSubTask(task)" title="Добавить подзадачу">
+                            <Plus :size="14" />
+                          </button>
+                          <button class="btn btn-edit-icon" @click="editTask(task)" title="Редактировать">
+                            <Edit :size="14" />
+                          </button>
+                          <button class="btn btn-delete-icon" @click="deleteTask(task)" title="Удалить">
+                            <Trash2 :size="14" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -593,10 +608,11 @@
 
 <script>
 import { Modal } from 'bootstrap'
-import { Edit, Trash2, Plus, Home, Info, PieChart, ListTodo, Calendar, Clock, Users, CheckCircle, AlertTriangle, UserPlus, UserMinus } from 'lucide-vue-next'
+import { Edit, Trash2, Plus, Home, Info, PieChart, ListTodo, Calendar, Clock, Users, CheckCircle, AlertTriangle, UserPlus, UserMinus, GitBranch } from 'lucide-vue-next'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
+import ProjectTasksTree from './ProjectTasksTree.vue'
 
 export default {
   name: 'ProjectDetail',
@@ -614,7 +630,9 @@ export default {
     CheckCircle,
     AlertTriangle,
     UserPlus,
-    UserMinus
+    UserMinus,
+    GitBranch,
+    ProjectTasksTree
   },
   setup() {
     const { showSuccess, showError, showConfirmDialog, closeConfirmDialog } = useNotifications()
@@ -626,6 +644,7 @@ export default {
       error: null,
       project: null,
       tasks: [],
+      showTaskTree: false,
       users: [],
       currentTask: {
         title: '',
@@ -635,7 +654,8 @@ export default {
         priority: 'medium',
         start_date: '',
         due_date: '',
-        estimated_hours: null
+        estimated_hours: null,
+        parent_id: null
       },
       currentProject: {
         name: '',
@@ -813,6 +833,9 @@ export default {
     }
   },
   methods: {
+    toggleTaskView() {
+      this.showTaskTree = !this.showTaskTree
+    },
     async loadProjectData() {
       const projectId = this.$route.params.id
       if (!projectId) {
@@ -934,13 +957,13 @@ export default {
       modal.show()
     },
 
-    createTask() {
+    createTask(parentTask = null) {
       if (!this.project) return
-      
+
       // Устанавливаем значения по умолчанию из загруженных данных
       const defaultTaskStatus = this.taskStatuses.find(s => s.is_default) || this.taskStatuses[0]
       const defaultTaskPriority = this.taskPriorities.find(p => p.is_default) || this.taskPriorities[0]
-      
+
       this.isEditingTask = false
       this.currentTask = {
         title: '',
@@ -951,11 +974,16 @@ export default {
         priority: defaultTaskPriority ? defaultTaskPriority.code : 'medium',
         start_date: '',
         due_date: '',
-        estimated_hours: null
+        estimated_hours: null,
+        parent_id: parentTask ? parentTask.id : null
       }
-      
+
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
+    },
+
+    createSubTask(task) {
+      this.createTask(task)
     },
 
     editTask(task) {
@@ -970,9 +998,10 @@ export default {
         priority: task.priority,
         start_date: task.start_date ? this.formatDateTimeLocal(new Date(task.start_date)) : '',
         due_date: task.due_date ? this.formatDateTimeLocal(new Date(task.due_date)) : '',
-        estimated_hours: task.estimated_hours
+        estimated_hours: task.estimated_hours,
+        parent_id: task.parent || null
       }
-      
+
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
     },
@@ -1038,7 +1067,8 @@ export default {
           assignee_id: this.currentTask.assignee_id || null,
           start_date: this.currentTask.start_date || null,
           due_date: this.currentTask.due_date || null,
-          estimated_hours: this.currentTask.estimated_hours || null
+          estimated_hours: this.currentTask.estimated_hours || null,
+          parent_id: this.currentTask.parent_id || null
         }
         
         if (this.isEditingTask) {
@@ -1950,7 +1980,12 @@ export default {
         margin: 0;
       }
     }
-    
+
+    .section-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+
     .btn {
       display: flex;
       align-items: center;
@@ -1969,7 +2004,7 @@ export default {
   
   .tasks-content {
     padding: 1.5rem;
-    
+
     .empty-state {
       text-align: center;
       padding: 3rem 2rem;
@@ -1997,6 +2032,10 @@ export default {
         font-weight: 600;
         border-radius: 8px;
       }
+    }
+
+    .task-tree-container {
+      height: 400px;
     }
   }
 }
