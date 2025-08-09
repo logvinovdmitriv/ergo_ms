@@ -1,93 +1,48 @@
 <template>
   <section class="card">
     <header class="card__header">
-      <h2 class="card__title">Организации</h2>
-
-      <div class="toolbar">
-        <div class="toolbar__left">
-          <input v-model="q" class="input input--sm" placeholder="Поиск по названию…" />
-        </div>
-        <div class="toolbar__right">
-          <button class="btn btn--sm btn--ghost" @click="load" :disabled="loading">Обновить</button>
-          <router-link class="btn btn--sm btn--primary" :to="{ name: 'OrganizationNew' }">Создать</router-link>
-        </div>
-      </div>
+      <h2 class="card__title">Приглашения</h2>
     </header>
 
     <div class="card__body">
-      <!-- пустое состояние -->
-      <div v-if="!loading && filtered.length === 0" class="empty">
-        <p class="muted">Пока нет организаций.</p>
-        <router-link class="btn btn--primary btn--sm" :to="{ name: 'OrganizationNew' }">Создать первую</router-link>
+      <div v-if="loading" class="table-wrap">
+        <table class="table table--compact">
+          <tbody>
+            <tr><td><div class="skeleton skeleton--row"></div></td></tr>
+          </tbody>
+        </table>
       </div>
 
-      <!-- таблица -->
+      <div v-else-if="invites.length === 0" class="empty">
+        <p class="muted">Нет приглашений.</p>
+      </div>
+
       <div v-else class="table-wrap">
         <table class="table table--hover table--compact">
           <thead>
             <tr>
-              <th>Название</th>
-              <th class="hide-sm">Статус</th>
-              <th class="hide-sm">Моя роль</th>
-              <th>Участники</th>
+              <th>Организация</th>
+              <th class="hide-sm">Роль</th>
+              <th class="hide-sm">Отправитель</th>
+              <th class="hide-sm">Действует до</th>
               <th class="col-actions">Действия</th>
             </tr>
           </thead>
-
           <tbody>
-            <tr v-if="loading">
-              <td colspan="5"><div class="skeleton skeleton--row"></div></td>
-            </tr>
-
-            <tr v-for="org in filtered" :key="org.id" class="row--clickable">
-              <!-- кликабельность — на первую ячейку -->
-              <td @click="goDetails(org.id)">
-                <div class="cell-main">
-                  <div class="avatar" v-if="org.logo_url"><img :src="org.logo_url" alt="" /></div>
-                  <div class="avatar avatar--placeholder" v-else>{{ org.name?.[0] || 'О' }}</div>
-
-                  <div class="cell-main__text">
-                    <div v-if="editingId === org.id" class="inline-edit" @click.stop>
-                      <input v-model="editName" class="input input--sm" />
-                      <button class="btn btn--sm btn--primary" @click="saveEdit(org.id)">Сохранить</button>
-                      <button class="btn btn--sm btn--ghost" @click="cancelEdit">Отмена</button>
-                    </div>
-
-                    <template v-else>
-                      <div class="title">
-                        {{ org.name }}
-                        <span v-if="isOwner(org)" class="badge badge--outline">владелец</span>
-                      </div>
-                      <div class="muted slug" v-if="org.slug">@{{ org.slug }}</div>
-                    </template>
-                  </div>
-                </div>
-              </td>
-
+            <tr v-for="inv in invites" :key="inv.token">
+              <td>{{ inv.organization?.name || '-' }}</td>
+              <td class="hide-sm"><span class="badge badge--outline">{{ inv.role }}</span></td>
+              <td class="hide-sm">{{ inv.inviter?.full_name || inv.inviter }}</td>
               <td class="hide-sm">
-                <span class="badge" :class="org.status === 'active' ? 'badge--success' : 'badge--muted'">
-                  {{ org.status || 'active' }}
-                </span>
+                <span v-if="isExpired(inv)">Истёк</span>
+                <span v-else>{{ formatDate(inv.expires_at) }}</span>
               </td>
-
-              <td class="hide-sm">
-                <span class="badge badge--outline">{{ myRole(org) }}</span>
-              </td>
-
-              <td>
-                <span class="badge badge--neutral">{{ org.members_count ?? org.members?.length ?? 0 }}</span>
-              </td>
-
-              <td class="col-actions" @click.stop>
-                <button
-                  v-if="isOwner(org)"
-                  class="btn btn--xs btn--link"
-                  title="Редактировать"
-                  @click="startEdit(org)"
-                >Редактировать</button>
-
-                <button class="btn btn--xs btn--link" title="Открыть" @click="goDetails(org.id)">
-                  Открыть
+              <td class="col-actions">
+                <button class="btn btn--xs btn--primary" @click="accept(inv.token)" :disabled="acting">
+                  Принять
+                </button>
+                <button class="btn btn--xs btn--ghost" @click="decline(inv.token)" :disabled="acting">
+                  Отклонить
                 </button>
               </td>
             </tr>
@@ -99,60 +54,51 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
-import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
 import OrganizationApi from './js/organizationApi.js';
 
 export default {
-  name: 'OrganizationsList',
+  name: 'OrganizationInvites',
   setup() {
-    const store = useStore();
-    const router = useRouter();
-    const userId = store.state?.auth?.user?.id;
-
-    const organizations = ref([]);
+    const invites = ref([]);
     const loading = ref(false);
-    const q = ref('');
-
-    const editingId = ref(null);
-    const editName = ref('');
+    const acting = ref(false);
 
     const load = async () => {
       loading.value = true;
       try {
-        const resp = await OrganizationApi.getOrganizations();
-        organizations.value = resp?.data?.results || resp?.data || [];
+        const resp = await OrganizationApi.getInvites();
+        invites.value = resp?.data || [];
       } finally {
         loading.value = false;
       }
     };
 
-    const filtered = computed(() => {
-      const term = q.value.trim().toLowerCase();
-      if (!term) return organizations.value;
-      return organizations.value.filter(o => (o.name || '').toLowerCase().includes(term));
-    });
+    const isExpired = (inv) => inv.expires_at && new Date(inv.expires_at) < new Date();
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString() : '';
 
-    const isOwner = (org) => org?.owner && org.owner.id === userId;
-    const myRole  = (org) => (isOwner(org) ? 'owner' : (org.my_role || 'member'));
-
-    const startEdit = (org) => { editingId.value = org.id; editName.value = org.name; };
-    const cancelEdit = () => { editingId.value = null; };
-    const saveEdit = async (orgId) => {
-      await OrganizationApi.updateOrganization(orgId, { name: editName.value });
-      editingId.value = null;
-      await load();
+    const accept = async (token) => {
+      acting.value = true;
+      try {
+        await OrganizationApi.acceptInvite(token);
+        await load();
+      } finally {
+        acting.value = false;
+      }
     };
 
-    const goDetails = (id) => router.push({ name: 'OrganizationDetails', params: { id } });
+    const decline = async (token) => {
+      acting.value = true;
+      try {
+        await OrganizationApi.declineInvite(token);
+        await load();
+      } finally {
+        acting.value = false;
+      }
+    };
 
     onMounted(load);
-    return {
-      organizations, loading, q,
-      editingId, editName, startEdit, cancelEdit, saveEdit,
-      filtered, isOwner, myRole, load, goDetails
-    };
+    return { invites, loading, acting, load, accept, decline, formatDate, isExpired };
   }
 };
 </script>
