@@ -318,6 +318,9 @@
                       </td>
                       <td class="actions-cell">
                         <div class="action-buttons">
+                          <button class="btn btn-edit-icon" @click="createSubTask(task)" title="Добавить подзадачу">
+                            <Plus :size="14" />
+                          </button>
                           <button class="btn btn-edit-icon" @click="editTask(task)" title="Редактировать">
                             <Edit :size="14" />
                           </button>
@@ -651,7 +654,8 @@ export default {
         priority: 'medium',
         start_date: '',
         due_date: '',
-        estimated_hours: null
+        estimated_hours: null,
+        parent_id: null
       },
       currentProject: {
         name: '',
@@ -953,13 +957,13 @@ export default {
       modal.show()
     },
 
-    createTask() {
+    createTask(parentTask = null) {
       if (!this.project) return
-      
+
       // Устанавливаем значения по умолчанию из загруженных данных
       const defaultTaskStatus = this.taskStatuses.find(s => s.is_default) || this.taskStatuses[0]
       const defaultTaskPriority = this.taskPriorities.find(p => p.is_default) || this.taskPriorities[0]
-      
+
       this.isEditingTask = false
       this.currentTask = {
         title: '',
@@ -970,11 +974,16 @@ export default {
         priority: defaultTaskPriority ? defaultTaskPriority.code : 'medium',
         start_date: '',
         due_date: '',
-        estimated_hours: null
+        estimated_hours: null,
+        parent_id: parentTask ? parentTask.id : null
       }
-      
+
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
+    },
+
+    createSubTask(task) {
+      this.createTask(task)
     },
 
     editTask(task) {
@@ -989,9 +998,10 @@ export default {
         priority: task.priority,
         start_date: task.start_date ? this.formatDateTimeLocal(new Date(task.start_date)) : '',
         due_date: task.due_date ? this.formatDateTimeLocal(new Date(task.due_date)) : '',
-        estimated_hours: task.estimated_hours
+        estimated_hours: task.estimated_hours,
+        parent_id: task.parent || null
       }
-      
+
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
     },
@@ -1057,7 +1067,8 @@ export default {
           assignee_id: this.currentTask.assignee_id || null,
           start_date: this.currentTask.start_date || null,
           due_date: this.currentTask.due_date || null,
-          estimated_hours: this.currentTask.estimated_hours || null
+          estimated_hours: this.currentTask.estimated_hours || null,
+          parent_id: this.currentTask.parent_id || null
         }
         
         if (this.isEditingTask) {

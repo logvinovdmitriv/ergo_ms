@@ -215,6 +215,43 @@ class TimeLogSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class TaskListSerializer(serializers.ModelSerializer):
+    """Сериализатор списка задач"""
+    assignee = CRMUserSerializer(read_only=True)
+    creator = CRMUserSerializer(read_only=True)
+    project = ProjectListSerializer(read_only=True)
+
+    # Новые поля для статусов и приоритетов
+    status_ref = TaskStatusSerializer(read_only=True)
+    priority_ref = TaskPrioritySerializer(read_only=True)
+    current_status = serializers.CharField(read_only=True)
+    current_priority = serializers.CharField(read_only=True)
+    status_display = serializers.CharField(read_only=True)
+    priority_display = serializers.CharField(read_only=True)
+
+    parent = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    comment_count = serializers.SerializerMethodField()
+    attachment_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = [
+            'id', 'title', 'description', 'project', 'assignee', 'creator',
+            'status', 'priority', 'start_date', 'due_date', 'completed_at',
+            'created_at', 'updated_at', 'estimated_hours', 'actual_hours',
+            'kanban_order', 'comment_count', 'attachment_count',
+            'status_ref', 'priority_ref', 'current_status', 'current_priority',
+            'status_display', 'priority_display', 'parent'
+        ]
+
+    def get_comment_count(self, obj):
+        return obj.comments.count()
+
+    def get_attachment_count(self, obj):
+        return obj.attachments.count()
+
+
 class TaskSerializer(serializers.ModelSerializer):
     """Сериализатор задачи"""
     assignee = CRMUserSerializer(read_only=True)
@@ -222,6 +259,9 @@ class TaskSerializer(serializers.ModelSerializer):
     project = ProjectListSerializer(read_only=True)
     assignee_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     project_id = serializers.IntegerField(write_only=True)
+    parent = TaskListSerializer(read_only=True)
+    parent_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    subtasks = TaskListSerializer(many=True, read_only=True)
     
     # Новые поля для статусов и приоритетов
     status_ref = TaskStatusSerializer(read_only=True)
@@ -250,7 +290,7 @@ class TaskSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'project', 'project_id', 'assignee', 'assignee_id',
             'creator', 'status', 'priority', 'start_date', 'due_date', 'completed_at',
             'created_at', 'updated_at', 'estimated_hours', 'actual_hours', 'kanban_order',
-            'comments', 'attachments', 'time_logs', 'total_time',
+            'comments', 'attachments', 'time_logs', 'total_time', 'parent', 'parent_id', 'subtasks',
             'status_ref', 'priority_ref', 'status_ref_id', 'priority_ref_id',
             'current_status', 'current_priority', 'status_display', 'priority_display'
         ]
@@ -273,40 +313,6 @@ class TaskSerializer(serializers.ModelSerializer):
         validated_data['creator'] = self.context['request'].user
         return super().create(validated_data)
 
-
-class TaskListSerializer(serializers.ModelSerializer):
-    """Сериализатор списка задач"""
-    assignee = CRMUserSerializer(read_only=True)
-    creator = CRMUserSerializer(read_only=True)
-    project = ProjectListSerializer(read_only=True)
-    
-    # Новые поля для статусов и приоритетов
-    status_ref = TaskStatusSerializer(read_only=True)
-    priority_ref = TaskPrioritySerializer(read_only=True)
-    current_status = serializers.CharField(read_only=True)
-    current_priority = serializers.CharField(read_only=True)
-    status_display = serializers.CharField(read_only=True)
-    priority_display = serializers.CharField(read_only=True)
-    
-    comment_count = serializers.SerializerMethodField()
-    attachment_count = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Task
-        fields = [
-            'id', 'title', 'description', 'project', 'assignee', 'creator',
-            'status', 'priority', 'start_date', 'due_date', 'completed_at',
-            'created_at', 'updated_at', 'estimated_hours', 'actual_hours',
-            'kanban_order', 'comment_count', 'attachment_count',
-            'status_ref', 'priority_ref', 'current_status', 'current_priority',
-            'status_display', 'priority_display'
-        ]
-    
-    def get_comment_count(self, obj):
-        return obj.comments.count()
-    
-    def get_attachment_count(self, obj):
-        return obj.attachments.count()
 
 
 class TaskCalendarSerializer(serializers.ModelSerializer):

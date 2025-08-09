@@ -30,21 +30,41 @@ function buildGraph() {
     }
   ]
   edges.value = []
-  const spacing = 180
-  props.tasks.forEach((task, index) => {
-    const nodeId = `task-${task.id}`
-    nodes.value.push({
-      id: nodeId,
-      data: { label: task.title },
-      position: { x: index * spacing, y: 150 },
-      draggable: false
-    })
-    edges.value.push({
-      id: `edge-${task.id}`,
-      source: rootId,
-      target: nodeId
-    })
+
+  const tasksByParent = {}
+  props.tasks.forEach(task => {
+    const parentId = task.parent || null
+    if (!tasksByParent[parentId]) tasksByParent[parentId] = []
+    tasksByParent[parentId].push(task)
   })
+
+  const levelSpacing = 150
+  const nodeSpacing = 180
+
+  function addChildren(parentId, tasks, depth, startX) {
+    tasks.forEach((task, index) => {
+      const nodeId = `task-${task.id}`
+      const x = startX + index * nodeSpacing
+      const y = depth * levelSpacing
+      nodes.value.push({
+        id: nodeId,
+        data: { label: task.title },
+        position: { x, y },
+        draggable: false
+      })
+      edges.value.push({
+        id: `edge-${parentId || 'root'}-${task.id}`,
+        source: parentId ? `task-${parentId}` : rootId,
+        target: nodeId
+      })
+      const children = tasksByParent[task.id]
+      if (children && children.length) {
+        addChildren(task.id, children, depth + 1, x)
+      }
+    })
+  }
+
+  addChildren(null, tasksByParent[null] || [], 1, 0)
 }
 
 watch(() => props.tasks, buildGraph, { immediate: true })
