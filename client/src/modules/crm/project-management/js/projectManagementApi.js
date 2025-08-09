@@ -160,6 +160,23 @@ class ProjectManagementApi {
         return await this.client.get('/crm/users/', { params });
     }
 
+    // ОРГАНИЗАЦИИ
+    async getOrganizations() {
+        return await this.client.get('/crm/organizations/');
+    }
+
+    async createOrganization(data) {
+        return await this.client.post('/crm/organizations/', data);
+    }
+
+    async inviteToOrganization(orgId, data) {
+        return await this.client.post(`/crm/organizations/${orgId}/add_member/`, data);
+    }
+
+    async acceptOrganization(orgId) {
+        return await this.client.post(`/crm/organizations/${orgId}/accept/`);
+    }
+
     // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
     async uploadFile(file, taskId = null) {
         const formData = new FormData();

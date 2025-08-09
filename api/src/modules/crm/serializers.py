@@ -2,7 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
     Project, ProjectMember, Task, TaskComment, TaskAttachment, TimeLog,
-    ProjectStatus, ProjectPriority, TaskStatus, TaskPriority
+    ProjectStatus, ProjectPriority, TaskStatus, TaskPriority,
+    Organization, OrganizationMember
 )
 
 User = get_user_model()
@@ -53,6 +54,26 @@ class CRMUserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'first_name', 'last_name', 'full_name', 'email']
 
 
+class OrganizationMemberSerializer(serializers.ModelSerializer):
+    """Сериализатор участника организации"""
+    user = CRMUserSerializer(read_only=True)
+    user_id = serializers.IntegerField(write_only=True, required=False)
+
+    class Meta:
+        model = OrganizationMember
+        fields = ['id', 'user', 'user_id', 'is_accepted', 'invited_at', 'joined_at']
+        read_only_fields = ['invited_at', 'joined_at']
+
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    """Сериализатор организации"""
+    owner = CRMUserSerializer(read_only=True)
+    memberships = OrganizationMemberSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Organization
+        fields = ['id', 'name', 'owner', 'memberships', 'created_at', 'updated_at']
+
 class ProjectMemberSerializer(serializers.ModelSerializer):
     """Сериализатор участника проекта"""
     user = CRMUserSerializer(read_only=True)
@@ -69,6 +90,8 @@ class ProjectSerializer(serializers.ModelSerializer):
     manager = CRMUserSerializer(read_only=True)
     manager_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     memberships = ProjectMemberSerializer(many=True, read_only=True)
+    organization = OrganizationSerializer(read_only=True)
+    organization_id = serializers.IntegerField(write_only=True, required=False)
     
     # Новые поля для статусов и приоритетов
     status_ref = ProjectStatusSerializer(read_only=True)
@@ -90,7 +113,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = [
             'id', 'name', 'description', 'owner', 'manager', 'manager_id',
-            'memberships', 'status', 'priority', 'start_date', 'end_date',
+            'organization', 'organization_id', 'memberships', 'status', 'priority', 'start_date', 'end_date',
             'created_at', 'updated_at', 'color', 'task_count', 'completed_task_count',
             'progress', 'status_ref', 'priority_ref', 'status_ref_id', 'priority_ref_id',
             'current_status', 'current_priority', 'status_display', 'priority_display'
@@ -121,7 +144,20 @@ class ProjectSerializer(serializers.ModelSerializer):
         return round((completed / total) * 100)
     
     def create(self, validated_data):
-        validated_data['owner'] = self.context['request'].user
+        user = self.context['request'].user
+        organization_id = validated_data.pop('organization_id', None)
+        if not organization_id:
+            raise serializers.ValidationError('organization_id is required')
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            raise serializers.ValidationError('Организация не найдена')
+
+        if not (organization.owner == user or OrganizationMember.objects.filter(organization=organization, user=user, is_accepted=True).exists()):
+            raise serializers.ValidationError('Вы не являетесь участником организации')
+
+        validated_data['owner'] = user
+        validated_data['organization'] = organization
         return super().create(validated_data)
 
 
@@ -129,6 +165,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
     """Сериализатор списка проектов"""
     owner = CRMUserSerializer(read_only=True)
     manager = CRMUserSerializer(read_only=True)
+    organization = OrganizationSerializer(read_only=True)
     
     # Новые поля для статусов и приоритетов
     status_ref = ProjectStatusSerializer(read_only=True)
@@ -145,7 +182,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
         fields = [
-            'id', 'name', 'description', 'owner', 'manager', 'status', 'priority',
+            'id', 'name', 'description', 'owner', 'manager', 'organization', 'status', 'priority',
             'start_date', 'end_date', 'created_at', 'color', 'task_count',
             'completed_task_count', 'progress', 'status_ref', 'priority_ref',
             'current_status', 'current_priority', 'status_display', 'priority_display'

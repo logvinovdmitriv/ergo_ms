@@ -92,6 +92,42 @@ class TaskPriority(models.Model):
     def __str__(self):
         return self.name
 
+# Организации
+
+class Organization(models.Model):
+    """Организация в CRM"""
+    name = models.CharField(max_length=255, verbose_name='Название организации')
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_organizations', verbose_name='Владелец')
+    members = models.ManyToManyField(User, through='OrganizationMember', related_name='organizations', verbose_name='Участники')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+
+    class Meta:
+        app_label = 'crm'
+        verbose_name = 'Организация'
+        verbose_name_plural = 'Организации'
+
+    def __str__(self):
+        return self.name
+
+
+class OrganizationMember(models.Model):
+    """Участник организации"""
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='organization_memberships')
+    is_accepted = models.BooleanField(default=False, verbose_name='Приглашение принято')
+    invited_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата приглашения')
+    joined_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата присоединения')
+
+    class Meta:
+        app_label = 'crm'
+        verbose_name = 'Участник организации'
+        verbose_name_plural = 'Участники организаций'
+        unique_together = ['organization', 'user']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.organization.name}"
+
 # Модели для управления проектами и задачами
 
 class Project(models.Model):
@@ -110,9 +146,9 @@ class Project(models.Model):
         ('high', 'Высокий'),
         ('urgent', 'Срочный'),
     ]
-    
     name = models.CharField(max_length=255, verbose_name='Название проекта')
     description = models.TextField(blank=True, verbose_name='Описание')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='projects', null=True, blank=True, verbose_name='Организация')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_projects', verbose_name='Владелец проекта')
     manager = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_projects', verbose_name='Менеджер проекта')
     team_members = models.ManyToManyField(User, through='ProjectMember', related_name='project_teams', verbose_name='Участники команды')

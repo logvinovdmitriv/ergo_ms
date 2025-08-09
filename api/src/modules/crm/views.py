@@ -13,16 +13,73 @@ from src.core.utils.mixins import SwaggerSafeMixin
 
 from .models import (
     Project, ProjectMember, Task, TaskComment, TaskAttachment, TimeLog,
-    ProjectStatus, ProjectPriority, TaskStatus, TaskPriority
+    ProjectStatus, ProjectPriority, TaskStatus, TaskPriority,
+    Organization, OrganizationMember
 )
 from .serializers import (
     ProjectSerializer, ProjectListSerializer, ProjectMemberSerializer,
     TaskSerializer, TaskListSerializer, TaskCalendarSerializer, TaskKanbanSerializer,
     TaskCommentSerializer, TaskAttachmentSerializer, TimeLogSerializer, CRMUserSerializer,
-    ProjectStatusSerializer, ProjectPrioritySerializer, TaskStatusSerializer, TaskPrioritySerializer
+    ProjectStatusSerializer, ProjectPrioritySerializer, TaskStatusSerializer, TaskPrioritySerializer,
+    OrganizationSerializer, OrganizationMemberSerializer
 )
 
 User = get_user_model()
+
+
+class OrganizationViewSet(viewsets.ModelViewSet):
+    """ViewSet для управления организациями"""
+    queryset = Organization.objects.all()
+    serializer_class = OrganizationSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+    def get_queryset(self):
+        user = self.request.user
+        return Organization.objects.filter(
+            Q(owner=user) | Q(members__user=user)
+        ).distinct()
+
+    def perform_create(self, serializer):
+        organization = serializer.save(owner=self.request.user)
+        OrganizationMember.objects.create(
+            organization=organization,
+            user=self.request.user,
+            is_accepted=True,
+            joined_at=timezone.now()
+        )
+
+    @action(detail=True, methods=['post'])
+    def add_member(self, request, pk=None):
+        """Пригласить пользователя в организацию"""
+        organization = self.get_object()
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        membership, created = OrganizationMember.objects.get_or_create(
+            organization=organization,
+            user_id=user_id
+        )
+        if not created and membership.is_accepted:
+            return Response({'error': 'Пользователь уже состоит в организации'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'status': 'invited'})
+
+    @action(detail=True, methods=['post'])
+    def accept(self, request, pk=None):
+        """Принять приглашение в организацию"""
+        organization = self.get_object()
+        try:
+            membership = OrganizationMember.objects.get(organization=organization, user=request.user)
+        except OrganizationMember.DoesNotExist:
+            return Response({'error': 'Приглашение не найдено'}, status=status.HTTP_404_NOT_FOUND)
+
+        membership.is_accepted = True
+        membership.joined_at = timezone.now()
+        membership.save()
+        return Response({'status': 'accepted'})
 
 
 class ProjectStatusViewSet(viewsets.ModelViewSet):
@@ -168,12 +225,15 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             return Project.objects.none()
             
         queryset = super().get_queryset()
-        
-        # По умолчанию показываем только проекты, в которых пользователь участвует
-        # Это включает: владельца, менеджера и участников команды
+
+        # Показываем только проекты организаций, где пользователь является владельцем
+        # или принятым участником
         queryset = queryset.filter(
-            Q(owner=user) | 
-            Q(manager=user) | 
+            Q(organization__owner=user) |
+            Q(organization__memberships__user=user, organization__memberships__is_accepted=True)
+        ).filter(
+            Q(owner=user) |
+            Q(manager=user) |
             Q(team_members=user)
         ).distinct()
         
@@ -290,17 +350,22 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             return Task.objects.none()
             
         queryset = super().get_queryset()
-        
-        # Параметр "Мои задачи" 
+
+        # Ограничиваем задачи организациями, где пользователь владелец
+        # или принятый участник
+        queryset = queryset.filter(
+            Q(project__organization__owner=user) |
+            Q(project__organization__memberships__user=user, project__organization__memberships__is_accepted=True)
+        )
+
+        # Параметр "Мои задачи"
         my_tasks = self.request.query_params.get('my_tasks', None)
-        
+
         if my_tasks and my_tasks.lower() == 'true':
             # Только мои задачи - только задачи, где я исполнитель
             queryset = queryset.filter(assignee=user).distinct()
         else:
             # Показываем все задачи из проектов, в которых пользователь участвует
-            # Это включает: владельца проекта, менеджера проекта, участников команды, 
-            # исполнителей задач и создателей задач
             queryset = queryset.filter(
                 Q(project__owner=user) |
                 Q(project__manager=user) |
