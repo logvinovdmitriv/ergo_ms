@@ -13,16 +13,120 @@ from src.core.utils.mixins import SwaggerSafeMixin
 
 from .models import (
     Project, ProjectMember, Task, TaskComment, TaskAttachment, TimeLog,
-    ProjectStatus, ProjectPriority, TaskStatus, TaskPriority
+    ProjectStatus, ProjectPriority, TaskStatus, TaskPriority,
+    Organization, OrganizationMember, OrganizationInvite
 )
 from .serializers import (
     ProjectSerializer, ProjectListSerializer, ProjectMemberSerializer,
     TaskSerializer, TaskListSerializer, TaskCalendarSerializer, TaskKanbanSerializer,
     TaskCommentSerializer, TaskAttachmentSerializer, TimeLogSerializer, CRMUserSerializer,
-    ProjectStatusSerializer, ProjectPrioritySerializer, TaskStatusSerializer, TaskPrioritySerializer
+    ProjectStatusSerializer, ProjectPrioritySerializer, TaskStatusSerializer, TaskPrioritySerializer,
+    OrganizationSerializer, OrganizationMemberSerializer, OrganizationInviteSerializer
 )
 
 User = get_user_model()
+
+
+class OrganizationViewSet(viewsets.ModelViewSet):
+    """ViewSet для управления организациями"""
+    queryset = Organization.objects.all()
+    serializer_class = OrganizationSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+    def get_queryset(self):
+        user = self.request.user
+        return Organization.objects.filter(
+            Q(owner=user) | Q(memberships__user=user, memberships__status='accepted')
+        ).distinct()
+
+    def perform_create(self, serializer):
+        organization = serializer.save(owner=self.request.user)
+        OrganizationMember.objects.create(
+            organization=organization,
+            user=self.request.user,
+            role='owner',
+            status='accepted',
+            invited_by=self.request.user,
+            invited_at=timezone.now(),
+            responded_at=timezone.now()
+        )
+
+    @action(detail=True, methods=['post'])
+    def invite(self, request, pk=None):
+        """Пригласить пользователя в организацию"""
+        organization = self.get_object()
+        email = request.data.get('email')
+        role = request.data.get('role', organization.default_role)
+        if not email:
+            return Response({'error': 'email is required'}, status=status.HTTP_400_BAD_REQUEST)
+        invite = OrganizationInvite.objects.create(
+            organization=organization,
+            email=email,
+            invited_by=request.user,
+        )
+        return Response({'token': invite.token, 'status': invite.status}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'])
+    def members(self, request, pk=None):
+        """Список участников организации"""
+        organization = self.get_object()
+        if not (organization.owner == request.user or OrganizationMember.objects.filter(organization=organization, user=request.user, role__in=['owner', 'admin'], status='accepted').exists()):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        serializer = OrganizationMemberSerializer(organization.memberships.all(), many=True)
+        return Response(serializer.data)
+
+
+class OrganizationInviteViewSet(viewsets.ViewSet):
+    """ViewSet для приглашений в организации"""
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        invites = OrganizationInvite.objects.filter(
+            email=request.user.email, status='pending'
+        ).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+        serializer = OrganizationInviteSerializer(invites, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def accept(self, request):
+        token = request.data.get('token')
+        try:
+            invite = OrganizationInvite.objects.get(token=token, email=request.user.email)
+        except OrganizationInvite.DoesNotExist:
+            return Response({'error': 'Инвайт не найден'}, status=status.HTTP_404_NOT_FOUND)
+        if invite.expires_at and invite.expires_at < timezone.now():
+            invite.status = 'expired'
+            invite.save()
+            return Response({'error': 'Инвайт просрочен'}, status=status.HTTP_410_GONE)
+        invite.status = 'accepted'
+        invite.responded_at = timezone.now()
+        invite.save()
+        OrganizationMember.objects.create(
+            organization=invite.organization,
+            user=request.user,
+            role=invite.organization.default_role,
+            status='accepted',
+            invited_by=invite.invited_by,
+            invited_at=invite.created_at,
+            responded_at=timezone.now()
+        )
+        return Response({'status': 'accepted'})
+
+    @action(detail=False, methods=['post'])
+    def decline(self, request):
+        token = request.data.get('token')
+        try:
+            invite = OrganizationInvite.objects.get(token=token, email=request.user.email)
+        except OrganizationInvite.DoesNotExist:
+            return Response({'error': 'Инвайт не найден'}, status=status.HTTP_404_NOT_FOUND)
+        invite.status = 'declined'
+        invite.responded_at = timezone.now()
+        invite.save()
+        return Response({'status': 'declined'})
 
 
 class ProjectStatusViewSet(viewsets.ModelViewSet):
@@ -168,12 +272,15 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             return Project.objects.none()
             
         queryset = super().get_queryset()
-        
-        # По умолчанию показываем только проекты, в которых пользователь участвует
-        # Это включает: владельца, менеджера и участников команды
+
+        # Показываем только проекты организаций, где пользователь является владельцем
+        # или принятым участником
         queryset = queryset.filter(
-            Q(owner=user) | 
-            Q(manager=user) | 
+            Q(organization__owner=user) |
+            Q(organization__memberships__user=user, organization__memberships__status='accepted')
+        ).filter(
+            Q(owner=user) |
+            Q(manager=user) |
             Q(team_members=user)
         ).distinct()
         
@@ -267,7 +374,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     queryset = Task.objects.all()
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'priority', 'project', 'assignee', 'creator']
+    filterset_fields = ['status', 'priority', 'project', 'assignee', 'creator', 'parent']
     search_fields = ['title', 'description']
     ordering_fields = ['created_at', 'due_date', 'priority', 'kanban_order']
     ordering = ['kanban_order', '-created_at']
@@ -290,17 +397,22 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             return Task.objects.none()
             
         queryset = super().get_queryset()
-        
-        # Параметр "Мои задачи" 
+
+        # Ограничиваем задачи организациями, где пользователь владелец
+        # или принятый участник
+        queryset = queryset.filter(
+            Q(organization__owner=user) |
+            Q(organization__memberships__user=user, organization__memberships__status='accepted')
+        )
+
+        # Параметр "Мои задачи"
         my_tasks = self.request.query_params.get('my_tasks', None)
-        
+
         if my_tasks and my_tasks.lower() == 'true':
             # Только мои задачи - только задачи, где я исполнитель
             queryset = queryset.filter(assignee=user).distinct()
         else:
             # Показываем все задачи из проектов, в которых пользователь участвует
-            # Это включает: владельца проекта, менеджера проекта, участников команды, 
-            # исполнителей задач и создателей задач
             queryset = queryset.filter(
                 Q(project__owner=user) |
                 Q(project__manager=user) |
