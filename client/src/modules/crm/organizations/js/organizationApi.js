@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios from "axios";
 import Cookies from 'js-cookie';
 
 const API_BASE_URL = `http://${import.meta.env.VITE_API_HOST || 'localhost'}:${import.meta.env.VITE_API_PORT || '8000'}/api`;
@@ -9,7 +9,6 @@ class OrganizationApi {
       baseURL: API_BASE_URL,
       headers: { 'Content-Type': 'application/json' }
     });
-
     this.client.interceptors.request.use((config) => {
       const token = Cookies.get('token');
       if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -17,30 +16,31 @@ class OrganizationApi {
     });
   }
 
-  // Организации
-  getOrganizations() { return this.client.get('/crm/organizations/'); }
-  getOrganization(id) { return this.client.get(`/crm/organizations/${id}/`); }
-  createOrganization(data) { return this.client.post('/crm/organizations/', data); }
-  updateOrganization(id, data) { return this.client.patch(`/crm/organizations/${id}/`, data); }
-  archiveOrganization(id) { return this.client.post(`/crm/organizations/${id}/archive`); }
+  // list
+  async getOrganizations(params = {}) { return await this.client.get('/crm/organizations/', { params }); }
+  // details
+  async getOrganization(id) { return await this.client.get(`/crm/organizations/${id}/`); }
+  // create/update/delete
+  async createOrganization(data) { return await this.client.post('/crm/organizations/', data); }
+  async updateOrganization(id, data) { return await this.client.patch(`/crm/organizations/${id}/`, data); }
+  async deleteOrganization(id) { return await this.client.delete(`/crm/organizations/${id}/`); }
+  async archiveOrganization(id) { return await this.client.post(`/crm/organizations/${id}/archive`); }
 
-  // Участники
-  getOrganizationMembers(id) { return this.client.get(`/crm/organizations/${id}/members/`); }
-  updateOrganizationMember(orgId, userId, data) { return this.client.patch(`/crm/organizations/${orgId}/members/${userId}/`, data); }
-  removeOrganizationMember(orgId, userId) { return this.client.delete(`/crm/organizations/${orgId}/members/${userId}/`); }
+  // members & projects
+  async getOrganizationMembers(id) { return await this.client.get(`/crm/organizations/${id}/members/`); }
+  async updateOrganizationMember(orgId, userId, data) { return await this.client.patch(`/crm/organizations/${orgId}/members/${userId}/`, data); }
+  async removeOrganizationMember(id, userId) {
+    // если на бэке есть отдельная ручка — подставить; иначе временный эндпоинт недоступен
+    // здесь показываем пример DELETE на гипотетический /members/{user_id}
+    return await this.client.delete(`/crm/organizations/${id}/members/${userId}/`);
+  }
+  async getProjects(orgId) { return await this.client.get(`/crm/projects/`, { params: { organization: orgId } }); }
 
-  // Инвайты (внутри организации)
-  inviteToOrganization(orgId, data) { return this.client.post(`/crm/organizations/${orgId}/invite/`, data); }
-
-  // Общий список приглашений пользователя
-  getInvites() { return this.client.get('/crm/invites/'); }
-  acceptInvite(token) { return this.client.post('/crm/invites/accept/', { token }); }
-  declineInvite(token) { return this.client.post('/crm/invites/decline/', { token }); }
-
-  // Проекты (по организации)
-  getProjects(orgId) { return this.client.get('/crm/projects/', { params: { organization_id: orgId } }); }
-
-  deleteOrganization(id) { return this.client.delete(`/crm/organizations/${id}/`); }
+  // invites
+  async inviteToOrganization(orgId, data) { return await this.client.post(`/crm/organizations/${orgId}/invite/`, data); }
+  async getInvites() { return await this.client.get('/crm/invites/'); }
+  async acceptInvite(token) { return await this.client.post('/crm/invites/accept/', { token }); }
+  async declineInvite(token) { return await this.client.post('/crm/invites/decline/', { token }); }
 }
 
 export default new OrganizationApi();
