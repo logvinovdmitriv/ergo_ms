@@ -11,7 +11,7 @@
       </div>
 
       <div v-else class="table-wrap">
-        <table class="table table--compact">
+        <table class="table table--hover table--compact">
           <thead>
             <tr>
               <th>Организация</th>
