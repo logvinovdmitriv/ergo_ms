@@ -174,6 +174,9 @@
                 </td>
                 <td @click.stop class="actions-cell">
                   <div class="action-buttons">
+                    <button class="btn btn-edit-icon" @click="createSubTask(task)" title="Добавить подзадачу">
+                      <Plus />
+                    </button>
                     <button class="btn btn-edit-icon" @click="editTask(task)" title="Редактировать">
                       <Edit />
                     </button>
@@ -497,7 +500,7 @@
 
 <script>
 import { Modal } from 'bootstrap'
-import { Edit, Trash2 } from 'lucide-vue-next'
+import { Edit, Trash2, Plus } from 'lucide-vue-next'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
@@ -506,7 +509,8 @@ export default {
   name: 'TasksList',
   components: {
     Edit,
-    Trash2
+    Trash2,
+    Plus
   },
   props: {
     managementMode: {
@@ -549,7 +553,8 @@ export default {
         priority: 'medium',
         start_date: '',
         due_date: '',
-        estimated_hours: null
+        estimated_hours: null,
+        parent_id: null
       },
       selectedTask: {},
       isEditing: false,
@@ -739,31 +744,36 @@ export default {
       console.log('Статусы и приоритеты задач обновлены:', this.taskStatuses.length, this.taskPriorities.length)
     },
     
-    async createTask() {
+    async createTask(parentTask = null) {
       this.isEditing = false
-      
+
       // Обновляем статусы и приоритеты перед созданием задачи
       console.log('Обновляем статусы перед созданием задачи...')
       await this.refreshStatusesAndPriorities()
-      
+
       // Устанавливаем значения по умолчанию из загруженных данных
       const defaultStatus = this.taskStatuses.find(s => s.is_default) || this.taskStatuses[0]
       const defaultPriority = this.taskPriorities.find(p => p.is_default) || this.taskPriorities[0]
-      
+
       this.currentTask = {
         title: '',
         description: '',
-        project_id: '',
+        project_id: parentTask?.project?.id || '',
         assignee_id: '',
         status: defaultStatus ? defaultStatus.code : 'todo',
         priority: defaultPriority ? defaultPriority.code : 'medium',
         start_date: '',
         due_date: '',
-        estimated_hours: null
+        estimated_hours: null,
+        parent_id: parentTask ? parentTask.id : null
       }
-      
+
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
+    },
+
+    createSubTask(task) {
+      this.createTask(task)
     },
     
     editTask(task) {
@@ -778,7 +788,8 @@ export default {
         priority: task.priority,
         start_date: task.start_date ? this.formatDateTimeLocal(new Date(task.start_date)) : '',
         due_date: task.due_date ? this.formatDateTimeLocal(new Date(task.due_date)) : '',
-        estimated_hours: task.estimated_hours
+        estimated_hours: task.estimated_hours,
+        parent_id: task.parent || null
       }
       
       const modal = new Modal(document.getElementById('taskModal'))
@@ -808,7 +819,8 @@ export default {
           assignee_id: this.currentTask.assignee_id || null,
           start_date: this.currentTask.start_date || null,
           due_date: this.currentTask.due_date || null,
-          estimated_hours: this.currentTask.estimated_hours || null
+          estimated_hours: this.currentTask.estimated_hours || null,
+          parent_id: this.currentTask.parent_id || null
         }
         
         if (this.isEditing) {

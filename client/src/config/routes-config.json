@@ -557,6 +557,14 @@
         "requiresAuth": true
       }
     },
+    "Organizations": {
+      "path": "/crm/organizations",
+      "component": "@/modules/crm/project-management/OrganizationsList.vue",
+      "meta": {
+        "title": "Организации",
+        "requiresAuth": true
+      }
+    },
 
     "LMS": {
       "path": "/lms",
