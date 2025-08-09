@@ -2,7 +2,6 @@
   <section class="card">
     <header class="card__header">
       <h2 class="card__title">Организации</h2>
-      <div class="muted">Список доступных вам организаций</div>
 
       <div class="toolbar">
         <div class="toolbar__left">
@@ -84,7 +83,9 @@
                   @click="startEdit(org)"
                 >Редактировать</button>
 
-                <button class="btn btn--xs btn--link" title="Открыть" @click="goDetails(org.id)">Открыть</button>
+                <button class="btn btn--xs btn--link" title="Открыть" @click="goDetails(org.id)">
+                  Открыть
+                </button>
               </td>
             </tr>
           </tbody>
@@ -131,7 +132,7 @@ export default {
     });
 
     const isOwner = (org) => org?.owner && org.owner.id === userId;
-    const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_role || 'member'));
+    const myRole  = (org) => (isOwner(org) ? 'owner' : (org.my_role || 'member'));
 
     const startEdit = (org) => { editingId.value = org.id; editName.value = org.name; };
     const cancelEdit = () => { editingId.value = null; };
@@ -144,7 +145,6 @@ export default {
     const goDetails = (id) => router.push({ name: 'OrganizationDetails', params: { id } });
 
     onMounted(load);
-
     return {
       organizations, loading, q,
       editingId, editName, startEdit, cancelEdit, saveEdit,

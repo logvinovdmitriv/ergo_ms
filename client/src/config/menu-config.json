@@ -185,8 +185,7 @@
           "children": [
             { "routeName": "OrganizationList", "name": "Список организаций" },
             { "routeName": "OrganizationNew", "name": "Создать организацию" },
-            { "routeName": "OrganizationInvites", "name": "Приглашения" },
-            { "routeName": "OrganizationDetails", "name": "Детали организации", "hidden": true }
+            { "routeName": "OrganizationInvites", "name": "Приглашения" }
           ]
         }
       ]

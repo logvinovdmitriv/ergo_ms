@@ -1,5 +1,5 @@
 <template>
-  <!-- один .page, плюс локальный scope-класс -->
+  <!-- один .page, общий scope-класс -->
   <div class="page orgs-scope">
     <header class="page__header">
       <h1 class="page__title">CRM · Организации</h1>
@@ -11,7 +11,6 @@
       </div>
     </header>
 
-    <!-- те же табы, что и в CRM -->
     <nav class="tabs tabs--underline orgs-tabs">
       <router-link
         :to="{ name: 'OrganizationList' }"
@@ -27,7 +26,9 @@
     </nav>
 
     <main class="page__content">
-      <router-view />
+      <!-- важное изменение: не router-view, а слот.
+           Контент каждой страницы мы передаем из Page-оберток -->
+      <slot />
     </main>
   </div>
 </template>
@@ -37,5 +38,6 @@ export default { name: 'CRMOrganizationsPage' };
 </script>
 
 <style lang="scss">
-@import './orgs.scss'; /* локальные стили раздела */
+@import '../orgs.scss';
 </style>
+

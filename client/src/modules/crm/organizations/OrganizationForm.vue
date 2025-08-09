@@ -134,7 +134,7 @@ export default {
 
     const save = async () => {
       await OrganizationApi.createOrganization({ ...form });
-      router.push({ name: 'OrganizationList' });
+      router.push({ name: 'OrganizationsList' });
     };
 
     return { form, save, saving };
