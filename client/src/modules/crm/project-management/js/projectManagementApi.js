@@ -172,7 +172,6 @@ class ProjectManagementApi {
     async updateOrganization(id, data) {
         return await this.client.patch(`/crm/organizations/${id}/`, data);
     }
-
     async inviteToOrganization(orgId, data) {
         return await this.client.post(`/crm/organizations/${orgId}/invite/`, data);
     }

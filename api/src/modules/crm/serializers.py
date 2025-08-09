@@ -64,8 +64,7 @@ class OrganizationMemberSerializer(serializers.ModelSerializer):
         model = OrganizationMember
         fields = ['id', 'user', 'user_id', 'role', 'status', 'invited_by', 'invited_at', 'responded_at']
         read_only_fields = ['invited_by', 'invited_at', 'responded_at']
-
-
+        
 class OrganizationSerializer(serializers.ModelSerializer):
     """Сериализатор организации"""
     owner = CRMUserSerializer(read_only=True)
@@ -389,8 +388,6 @@ class TaskSerializer(serializers.ModelSerializer):
         validated_data['creator'] = user
         validated_data['organization'] = organization
         return super().create(validated_data)
-
-
 
 class TaskCalendarSerializer(serializers.ModelSerializer):
     """Сериализатор задач для календаря"""

@@ -48,7 +48,6 @@ export default {
       newOrg.value = '';
       await load();
     };
-
     const startEdit = (org) => {
       editingId.value = org.id;
       editName.value = org.name;

@@ -4,7 +4,6 @@ from .views import (
     ProjectViewSet, TaskViewSet, TaskCommentViewSet, TimeLogViewSet, UserViewSet,
     ProjectStatusViewSet, ProjectPriorityViewSet, TaskStatusViewSet, TaskPriorityViewSet,
     OrganizationViewSet, OrganizationInviteViewSet
-)
 
 router = DefaultRouter()
 router.register(r'projects', ProjectViewSet)
