@@ -9,7 +9,6 @@
       <li v-for="org in organizations" :key="org.id">
         {{ org.name }}
         <span v-if="org.owner && org.owner.id === userId">(владелец)</span>
-        <button v-if="requiresAcceptance(org)" @click="accept(org.id)">Присоединиться</button>
       </li>
     </ul>
   </div>
@@ -39,20 +38,9 @@ export default {
       newOrg.value = '';
       await load();
     };
-
-    const accept = async (id) => {
-      await ProjectManagementApi.acceptOrganization(id);
-      await load();
-    };
-
-    const requiresAcceptance = (org) => {
-      const membership = org.memberships.find(m => m.user.id === userId);
-      return membership && !membership.is_accepted;
-    };
-
     onMounted(load);
 
-    return { organizations, newOrg, createOrganization, accept, requiresAcceptance, userId };
+    return { organizations, newOrg, createOrganization, userId };
   }
 };
 </script>

@@ -1,5 +1,9 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from django.utils.text import slugify
+from datetime import timedelta
+import secrets
 
 User = get_user_model()
 
@@ -96,9 +100,38 @@ class TaskPriority(models.Model):
 
 class Organization(models.Model):
     """Организация в CRM"""
+    VISIBILITY_CHOICES = [
+        ('private', 'private'),
+        ('by_invite', 'by_invite'),
+    ]
+    ROLE_CHOICES = [
+        ('member', 'member'),
+        ('viewer', 'viewer'),
+    ]
+    STATUS_CHOICES = [
+        ('active', 'active'),
+        ('archived', 'archived'),
+    ]
+
     name = models.CharField(max_length=255, verbose_name='Название организации')
+    slug = models.SlugField(unique=True, blank=True, verbose_name='Слаг')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    logo_url = models.URLField(blank=True, verbose_name='Логотип')
+    industry = models.CharField(max_length=255, blank=True, verbose_name='Отрасль')
+    website = models.URLField(blank=True, verbose_name='Сайт')
+    email = models.EmailField(blank=True, verbose_name='Email')
+    phone = models.CharField(max_length=50, blank=True, verbose_name='Телефон')
+    country = models.CharField(max_length=100, blank=True, verbose_name='Страна')
+    timezone = models.CharField(max_length=50, blank=True, verbose_name='Часовой пояс')
+    address = models.CharField(max_length=255, blank=True, verbose_name='Адрес')
+    billing_name = models.CharField(max_length=255, blank=True, verbose_name='Плательщик')
+    billing_vat = models.CharField(max_length=50, blank=True, verbose_name='НДС')
+    billing_address = models.CharField(max_length=255, blank=True, verbose_name='Адрес для счетов')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_organizations', verbose_name='Владелец')
     members = models.ManyToManyField(User, through='OrganizationMember', related_name='organizations', verbose_name='Участники')
+    visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='by_invite', verbose_name='Видимость')
+    default_role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member', verbose_name='Роль по умолчанию')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Статус')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
 
@@ -110,14 +143,35 @@ class Organization(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
 
 class OrganizationMember(models.Model):
     """Участник организации"""
+
+    ROLE_CHOICES = [
+        ('owner', 'owner'),
+        ('admin', 'admin'),
+        ('member', 'member'),
+        ('viewer', 'viewer'),
+    ]
+    STATUS_CHOICES = [
+        ('pending', 'pending'),
+        ('accepted', 'accepted'),
+        ('declined', 'declined'),
+        ('revoked', 'revoked'),
+    ]
+
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='memberships')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='organization_memberships')
-    is_accepted = models.BooleanField(default=False, verbose_name='Приглашение принято')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member', verbose_name='Роль')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='Статус')
+    invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_org_invites', verbose_name='Кем приглашен')
     invited_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата приглашения')
-    joined_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата присоединения')
+    responded_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата ответа')
 
     class Meta:
         app_label = 'crm'
@@ -128,6 +182,39 @@ class OrganizationMember(models.Model):
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.organization.name}"
 
+class OrganizationInvite(models.Model):
+    """Приглашение в организацию"""
+
+    STATUS_CHOICES = [
+        ('pending', 'pending'),
+        ('accepted', 'accepted'),
+        ('declined', 'declined'),
+        ('expired', 'expired'),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='invites')
+    email = models.EmailField(verbose_name='Email')
+    token = models.CharField(max_length=64, unique=True, editable=False)
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Истекает')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='Статус')
+    invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='organization_invites', verbose_name='Пригласивший')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    responded_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата ответа')
+
+    class Meta:
+        app_label = 'crm'
+        verbose_name = 'Приглашение в организацию'
+        verbose_name_plural = 'Приглашения в организации'
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = secrets.token_hex(16)
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(days=7)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.email} -> {self.organization.name}"
 # Модели для управления проектами и задачами
 
 class Project(models.Model):
@@ -241,6 +328,7 @@ class Task(models.Model):
     title = models.CharField(max_length=255, verbose_name='Название задачи')
     description = models.TextField(blank=True, verbose_name='Описание')
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks', verbose_name='Проект')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='tasks', null=True, blank=True, verbose_name='Организация')
     assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks', verbose_name='Исполнитель')
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_tasks', verbose_name='Создатель')
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subtasks', verbose_name='Родительская задача')

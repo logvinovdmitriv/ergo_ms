@@ -565,6 +565,14 @@
         "requiresAuth": true
       }
     },
+    "OrganizationInvites": {
+      "path": "/crm/invites",
+      "component": "@/modules/crm/project-management/OrganizationInvites.vue",
+      "meta": {
+        "title": "Приглашения",
+        "requiresAuth": true
+      }
+    },
 
     "LMS": {
       "path": "/lms",

@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from .models import (
     Project, ProjectMember, Task, TaskComment, TaskAttachment, TimeLog,
     ProjectStatus, ProjectPriority, TaskStatus, TaskPriority,
-    Organization, OrganizationMember
+    Organization, OrganizationMember, OrganizationInvite
 )
 
 User = get_user_model()
@@ -58,12 +58,12 @@ class OrganizationMemberSerializer(serializers.ModelSerializer):
     """Сериализатор участника организации"""
     user = CRMUserSerializer(read_only=True)
     user_id = serializers.IntegerField(write_only=True, required=False)
+    invited_by = CRMUserSerializer(read_only=True)
 
     class Meta:
         model = OrganizationMember
-        fields = ['id', 'user', 'user_id', 'is_accepted', 'invited_at', 'joined_at']
-        read_only_fields = ['invited_at', 'joined_at']
-
+        fields = ['id', 'user', 'user_id', 'role', 'status', 'invited_by', 'invited_at', 'responded_at']
+        read_only_fields = ['invited_by', 'invited_at', 'responded_at']
 
 class OrganizationSerializer(serializers.ModelSerializer):
     """Сериализатор организации"""
@@ -72,7 +72,25 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organization
-        fields = ['id', 'name', 'owner', 'memberships', 'created_at', 'updated_at']
+        fields = [
+            'id', 'name', 'slug', 'description', 'logo_url', 'industry', 'website',
+            'email', 'phone', 'country', 'timezone', 'address',
+            'billing_name', 'billing_vat', 'billing_address',
+            'owner', 'memberships', 'visibility', 'default_role', 'status',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['slug', 'owner', 'created_at', 'updated_at']
+
+
+class OrganizationInviteSerializer(serializers.ModelSerializer):
+    """Сериализатор приглашения"""
+    organization = serializers.PrimaryKeyRelatedField(read_only=True)
+    invited_by = CRMUserSerializer(read_only=True)
+
+    class Meta:
+        model = OrganizationInvite
+        fields = ['id', 'organization', 'email', 'token', 'expires_at', 'status', 'invited_by', 'created_at']
+        read_only_fields = ['token', 'status', 'invited_by', 'created_at', 'organization']
 
 class ProjectMemberSerializer(serializers.ModelSerializer):
     """Сериализатор участника проекта"""
@@ -153,7 +171,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         except Organization.DoesNotExist:
             raise serializers.ValidationError('Организация не найдена')
 
-        if not (organization.owner == user or OrganizationMember.objects.filter(organization=organization, user=user, is_accepted=True).exists()):
+        if not (organization.owner == user or OrganizationMember.objects.filter(organization=organization, user=user, status='accepted').exists()):
             raise serializers.ValidationError('Вы не являетесь участником организации')
 
         validated_data['owner'] = user
@@ -296,6 +314,8 @@ class TaskSerializer(serializers.ModelSerializer):
     project = ProjectListSerializer(read_only=True)
     assignee_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     project_id = serializers.IntegerField(write_only=True)
+    organization = OrganizationSerializer(read_only=True)
+    organization_id = serializers.IntegerField(write_only=True)
     parent = TaskListSerializer(read_only=True)
     parent_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     subtasks = TaskListSerializer(many=True, read_only=True)
@@ -324,7 +344,7 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = [
-            'id', 'title', 'description', 'project', 'project_id', 'assignee', 'assignee_id',
+            'id', 'title', 'description', 'project', 'project_id', 'organization', 'organization_id', 'assignee', 'assignee_id',
             'creator', 'status', 'priority', 'start_date', 'due_date', 'completed_at',
             'created_at', 'updated_at', 'estimated_hours', 'actual_hours', 'kanban_order',
             'comments', 'attachments', 'time_logs', 'total_time', 'parent', 'parent_id', 'subtasks',
@@ -347,10 +367,27 @@ class TaskSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        validated_data['creator'] = self.context['request'].user
+        user = self.context['request'].user
+        organization_id = validated_data.pop('organization_id', None)
+        if not organization_id:
+            raise serializers.ValidationError('organization_id is required')
+        try:
+            organization = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            raise serializers.ValidationError('Организация не найдена')
+        if not (organization.owner == user or OrganizationMember.objects.filter(organization=organization, user=user, status='accepted').exists()):
+            raise serializers.ValidationError('Вы не являетесь участником организации')
+
+        project_id = validated_data.pop('project_id', None)
+        try:
+            project = Project.objects.get(id=project_id, organization=organization)
+        except Project.DoesNotExist:
+            raise serializers.ValidationError('Проект не найден в организации')
+
+        validated_data['project'] = project
+        validated_data['creator'] = user
+        validated_data['organization'] = organization
         return super().create(validated_data)
-
-
 
 class TaskCalendarSerializer(serializers.ModelSerializer):
     """Сериализатор задач для календаря"""

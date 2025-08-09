@@ -14,14 +14,14 @@ from src.core.utils.mixins import SwaggerSafeMixin
 from .models import (
     Project, ProjectMember, Task, TaskComment, TaskAttachment, TimeLog,
     ProjectStatus, ProjectPriority, TaskStatus, TaskPriority,
-    Organization, OrganizationMember
+    Organization, OrganizationMember, OrganizationInvite
 )
 from .serializers import (
     ProjectSerializer, ProjectListSerializer, ProjectMemberSerializer,
     TaskSerializer, TaskListSerializer, TaskCalendarSerializer, TaskKanbanSerializer,
     TaskCommentSerializer, TaskAttachmentSerializer, TimeLogSerializer, CRMUserSerializer,
     ProjectStatusSerializer, ProjectPrioritySerializer, TaskStatusSerializer, TaskPrioritySerializer,
-    OrganizationSerializer, OrganizationMemberSerializer
+    OrganizationSerializer, OrganizationMemberSerializer, OrganizationInviteSerializer
 )
 
 User = get_user_model()
@@ -40,7 +40,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         return Organization.objects.filter(
-            Q(owner=user) | Q(members__user=user)
+            Q(owner=user) | Q(memberships__user=user, memberships__status='accepted')
         ).distinct()
 
     def perform_create(self, serializer):
@@ -48,38 +48,85 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         OrganizationMember.objects.create(
             organization=organization,
             user=self.request.user,
-            is_accepted=True,
-            joined_at=timezone.now()
+            role='owner',
+            status='accepted',
+            invited_by=self.request.user,
+            invited_at=timezone.now(),
+            responded_at=timezone.now()
         )
 
     @action(detail=True, methods=['post'])
-    def add_member(self, request, pk=None):
+    def invite(self, request, pk=None):
         """Пригласить пользователя в организацию"""
         organization = self.get_object()
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-        membership, created = OrganizationMember.objects.get_or_create(
+        email = request.data.get('email')
+        role = request.data.get('role', organization.default_role)
+        if not email:
+            return Response({'error': 'email is required'}, status=status.HTTP_400_BAD_REQUEST)
+        invite = OrganizationInvite.objects.create(
             organization=organization,
-            user_id=user_id
+            email=email,
+            invited_by=request.user,
         )
-        if not created and membership.is_accepted:
-            return Response({'error': 'Пользователь уже состоит в организации'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({'status': 'invited'})
+        return Response({'token': invite.token, 'status': invite.status}, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['post'])
-    def accept(self, request, pk=None):
-        """Принять приглашение в организацию"""
+    @action(detail=True, methods=['get'])
+    def members(self, request, pk=None):
+        """Список участников организации"""
         organization = self.get_object()
-        try:
-            membership = OrganizationMember.objects.get(organization=organization, user=request.user)
-        except OrganizationMember.DoesNotExist:
-            return Response({'error': 'Приглашение не найдено'}, status=status.HTTP_404_NOT_FOUND)
+        if not (organization.owner == request.user or OrganizationMember.objects.filter(organization=organization, user=request.user, role__in=['owner', 'admin'], status='accepted').exists()):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        serializer = OrganizationMemberSerializer(organization.memberships.all(), many=True)
+        return Response(serializer.data)
 
-        membership.is_accepted = True
-        membership.joined_at = timezone.now()
-        membership.save()
+
+class OrganizationInviteViewSet(viewsets.ViewSet):
+    """ViewSet для приглашений в организации"""
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        invites = OrganizationInvite.objects.filter(
+            email=request.user.email, status='pending'
+        ).filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+        serializer = OrganizationInviteSerializer(invites, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def accept(self, request):
+        token = request.data.get('token')
+        try:
+            invite = OrganizationInvite.objects.get(token=token, email=request.user.email)
+        except OrganizationInvite.DoesNotExist:
+            return Response({'error': 'Инвайт не найден'}, status=status.HTTP_404_NOT_FOUND)
+        if invite.expires_at and invite.expires_at < timezone.now():
+            invite.status = 'expired'
+            invite.save()
+            return Response({'error': 'Инвайт просрочен'}, status=status.HTTP_410_GONE)
+        invite.status = 'accepted'
+        invite.responded_at = timezone.now()
+        invite.save()
+        OrganizationMember.objects.create(
+            organization=invite.organization,
+            user=request.user,
+            role=invite.organization.default_role,
+            status='accepted',
+            invited_by=invite.invited_by,
+            invited_at=invite.created_at,
+            responded_at=timezone.now()
+        )
         return Response({'status': 'accepted'})
+
+    @action(detail=False, methods=['post'])
+    def decline(self, request):
+        token = request.data.get('token')
+        try:
+            invite = OrganizationInvite.objects.get(token=token, email=request.user.email)
+        except OrganizationInvite.DoesNotExist:
+            return Response({'error': 'Инвайт не найден'}, status=status.HTTP_404_NOT_FOUND)
+        invite.status = 'declined'
+        invite.responded_at = timezone.now()
+        invite.save()
+        return Response({'status': 'declined'})
 
 
 class ProjectStatusViewSet(viewsets.ModelViewSet):
@@ -230,7 +277,7 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         # или принятым участником
         queryset = queryset.filter(
             Q(organization__owner=user) |
-            Q(organization__memberships__user=user, organization__memberships__is_accepted=True)
+            Q(organization__memberships__user=user, organization__memberships__status='accepted')
         ).filter(
             Q(owner=user) |
             Q(manager=user) |
@@ -354,8 +401,8 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         # Ограничиваем задачи организациями, где пользователь владелец
         # или принятый участник
         queryset = queryset.filter(
-            Q(project__organization__owner=user) |
-            Q(project__organization__memberships__user=user, project__organization__memberships__is_accepted=True)
+            Q(organization__owner=user) |
+            Q(organization__memberships__user=user, organization__memberships__status='accepted')
         )
 
         # Параметр "Мои задачи"

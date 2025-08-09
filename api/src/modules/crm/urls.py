@@ -3,8 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ProjectViewSet, TaskViewSet, TaskCommentViewSet, TimeLogViewSet, UserViewSet,
     ProjectStatusViewSet, ProjectPriorityViewSet, TaskStatusViewSet, TaskPriorityViewSet,
-    OrganizationViewSet
-)
+    OrganizationViewSet, OrganizationInviteViewSet
 
 router = DefaultRouter()
 router.register(r'projects', ProjectViewSet)
@@ -19,6 +18,7 @@ router.register(r'project-priorities', ProjectPriorityViewSet)
 router.register(r'task-statuses', TaskStatusViewSet)
 router.register(r'task-priorities', TaskPriorityViewSet)
 router.register(r'organizations', OrganizationViewSet)
+router.register(r'invites', OrganizationInviteViewSet, basename='organization-invite')
 
 urlpatterns = [
     path('', include(router.urls)),
