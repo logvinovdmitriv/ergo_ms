@@ -557,6 +557,23 @@
         "requiresAuth": true
       }
     },
+    "Organizations": {
+      "path": "/crm/organizations",
+      "component": "@/modules/crm/project-management/OrganizationsList.vue",
+      "meta": {
+        "title": "Организации",
+        "requiresAuth": true
+      }
+    },
+
+    "OrganizationInvites": {
+      "path": "/crm/invites",
+      "component": "@/modules/crm/project-management/OrganizationInvites.vue",
+      "meta": {
+        "title": "Приглашения",
+        "requiresAuth": true
+      }
+    },
 
     "LMS": {
       "path": "/lms",

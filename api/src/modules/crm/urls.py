@@ -2,7 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     ProjectViewSet, TaskViewSet, TaskCommentViewSet, TimeLogViewSet, UserViewSet,
-    ProjectStatusViewSet, ProjectPriorityViewSet, TaskStatusViewSet, TaskPriorityViewSet
+    ProjectStatusViewSet, ProjectPriorityViewSet, TaskStatusViewSet, TaskPriorityViewSet,
+    OrganizationViewSet, OrganizationInviteViewSet
 )
 
 router = DefaultRouter()
@@ -17,6 +18,8 @@ router.register(r'project-statuses', ProjectStatusViewSet)
 router.register(r'project-priorities', ProjectPriorityViewSet)
 router.register(r'task-statuses', TaskStatusViewSet)
 router.register(r'task-priorities', TaskPriorityViewSet)
+router.register(r'organizations', OrganizationViewSet)
+router.register(r'invites', OrganizationInviteViewSet, basename='organization-invite')
 
 urlpatterns = [
     path('', include(router.urls)),
