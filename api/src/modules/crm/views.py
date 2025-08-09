@@ -59,13 +59,31 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     def invite(self, request, pk=None):
         """Пригласить пользователя в организацию"""
         organization = self.get_object()
+        # Проверяем права: только владелец или администратор
+        if not (
+            organization.owner == request.user or
+            OrganizationMember.objects.filter(
+                organization=organization,
+                user=request.user,
+                role__in=['owner', 'admin'],
+                status='accepted'
+            ).exists()
+        ):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
         email = request.data.get('email')
         role = request.data.get('role', organization.default_role)
+
         if not email:
             return Response({'error': 'email is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if role not in dict(OrganizationMember.ROLE_CHOICES) or role == 'owner':
+            return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+
         invite = OrganizationInvite.objects.create(
             organization=organization,
             email=email,
+            role=role,
             invited_by=request.user,
         )
         return Response({'token': invite.token, 'status': invite.status}, status=status.HTTP_201_CREATED)
@@ -108,7 +126,7 @@ class OrganizationInviteViewSet(viewsets.ViewSet):
         OrganizationMember.objects.create(
             organization=invite.organization,
             user=request.user,
-            role=invite.organization.default_role,
+            role=invite.role,
             status='accepted',
             invited_by=invite.invited_by,
             invited_at=invite.created_at,
