@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createStore } from 'vuex'
 import LayoutMenu from '@/LayoutMenu.vue'
 import LayoutStart from '@/LayoutStart.vue'
 import LayoutPublic from '@/LayoutPublic.vue'

@@ -25,7 +25,7 @@
       }
     }
   ],
-  
+
   "authRoutes": [
     {
       "path": "/start-page",
@@ -164,7 +164,7 @@
         "requiresAuth": true
       }
     },
-    
+
     "Shortcodes": {
       "path": "/shortcodes",
       "component": "@/modules/shortcodes/ParentLayout.vue",
@@ -557,17 +557,32 @@
         "requiresAuth": true
       }
     },
+
     "Organizations": {
       "path": "/crm/organizations",
-      "component": "@/modules/crm/project-management/Organizations.vue",
+      "component": "@/modules/crm/organizations/CRMOrganizationsPage.vue",
+      "redirect": "/crm/organizations/list",
       "meta": {
         "title": "Организации",
         "requiresAuth": true
       }
     },
+    "OrganizationList": {
+      "path": "/crm/organizations/list",
+      "name": "OrganizationList",
+      "component": "@/modules/crm/organizations/OrganizationsList.vue",
+      "meta": { "requiresAuth": true, "title": "Список организаций", "startRoute": true }
+    },
+    "OrganizationNew": {
+      "path": "/crm/organizations/new",
+      "name": "OrganizationNew",
+      "component": "@/modules/crm/organizations/OrganizationForm.vue",
+      "meta": { "requiresAuth": true, "title": "Создать организацию" }
+    },
     "OrganizationInvites": {
       "path": "/crm/invites",
-      "component": "@/modules/crm/project-management/OrganizationInvites.vue",
+      "name": "OrganizationInvites",
+      "component": "@/modules/crm/organizations/OrganizationInvites.vue",
       "meta": {
         "title": "Приглашения",
         "requiresAuth": true
@@ -1055,7 +1070,7 @@
     "StudentDetail": {
       "path": "/expert-system/student/:id",
       "component": "@/modules/expert-system/StudentDetail.vue",
-      "meta"  : {
+      "meta": {
         "title": "Детали студента",
         "requiresAuth": true
       }
@@ -1111,4 +1126,4 @@
       }
     }
   }
-} 
+}

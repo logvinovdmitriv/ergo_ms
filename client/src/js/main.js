@@ -1,4 +1,5 @@
 import router from '@/js/routers.js'
+import store from './store'
 import '@/modules/cms/js/authGuard.js' // Подключаем защиту аутентификации
 
 import 'bootstrap/dist/css/bootstrap.min.css'
@@ -33,6 +34,7 @@ app.directive('tooltip', {
 
 app.use(pinia)
 app.use(router)
+app.use(store)
 app.use(PerfectScrollbarPlugin)
 app.use(autoAnimatePlugin)
 app.use(VueApexCharts)

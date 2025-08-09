@@ -5,12 +5,12 @@
       "routeName": "User",
       "title": "Личный кабинет",
       "list": [
-        { 
-          "routeName": "Account", 
+        {
+          "routeName": "Account",
           "name": "Профиль"
         },
-        { 
-          "routeName": "SecuritySettings", 
+        {
+          "routeName": "SecuritySettings",
           "name": "Безопасность"
         }
       ]
@@ -25,24 +25,24 @@
           "routeName": "AdminPanel",
           "name": "Админ-панель",
           "children": [
-            { 
-              "routeName": "UsersPanel", 
+            {
+              "routeName": "UsersPanel",
               "name": "Пользователи"
             },
-            { 
-              "routeName": "CategoriesPanel", 
+            {
+              "routeName": "CategoriesPanel",
               "name": "Категории"
             },
-            { 
-              "routeName": "GroupsPanel", 
+            {
+              "routeName": "GroupsPanel",
               "name": "Группы"
             },
-            { 
-              "routeName": "PermissionsPanel", 
+            {
+              "routeName": "PermissionsPanel",
               "name": "Права"
             },
-            { 
-              "routeName": "LiminationPanel", 
+            {
+              "routeName": "LiminationPanel",
               "name": "Ограничения"
             }
           ]
@@ -52,24 +52,24 @@
           "routeName": "Shortcodes",
           "name": "Редактор страниц",
           "children": [
-            { 
-              "routeName": "MainShortcodePage", 
+            {
+              "routeName": "MainShortcodePage",
               "name": "Главная"
             },
-            { 
-              "routeName": "Templates", 
+            {
+              "routeName": "Templates",
               "name": "Компоненты"
             },
-            { 
-              "routeName": "Pages", 
+            {
+              "routeName": "Pages",
               "name": "Страницы"
             },
-            { 
-              "routeName": "Layouts", 
+            {
+              "routeName": "Layouts",
               "name": "Разметка сайта"
             },
-            { 
-              "routeName": "PageShortcodeCategories", 
+            {
+              "routeName": "PageShortcodeCategories",
               "name": "Категории шорткодов"
             }
           ]
@@ -95,8 +95,8 @@
         }
       ],
       "list": [
-        { 
-          "routeName": "SiteSettings", 
+        {
+          "routeName": "SiteSettings",
           "name": "Общие настройки"
         },
         {
@@ -181,7 +181,12 @@
         {
           "icon": "Building",
           "routeName": "Organizations",
-          "name": "Организации"
+          "name": "Организации",
+          "children": [
+            { "routeName": "OrganizationList", "name": "Список организаций" },
+            { "routeName": "OrganizationNew", "name": "Создать организацию" },
+            { "routeName": "OrganizationInvites", "name": "Приглашения" }
+          ]
         }
       ]
     },
@@ -219,32 +224,32 @@
       "routeName": "EducationAnalyticModule",
       "title": "Учебная аналитика",
       "list": [
-        { 
-          "routeName": "MainPage", 
+        {
+          "routeName": "MainPage",
           "name": "Общее"
         },
-        { 
-          "routeName": "StatsPage", 
+        {
+          "routeName": "StatsPage",
           "name": "Статистика"
         },
-        { 
-          "routeName": "LearningTrackPage", 
+        {
+          "routeName": "LearningTrackPage",
           "name": "Траектория"
         },
-        { 
-          "routeName": "ReportsPage", 
+        {
+          "routeName": "ReportsPage",
           "name": "Отчёты"
         },
-        { 
-          "routeName": "ProfilePage", 
+        {
+          "routeName": "ProfilePage",
           "name": "Профиль"
         },
-        { 
-          "routeName": "AdminPanelPage", 
+        {
+          "routeName": "AdminPanelPage",
           "name": "Админ-панель"
         },
-        { 
-          "routeName": "SuperUserPage", 
+        {
+          "routeName": "SuperUserPage",
           "name": "SAdmin"
         }
       ]
@@ -254,48 +259,48 @@
       "routeName": "ExpertSystem",
       "title": "Анализ вакансий",
       "list": [
-        { 
-          "routeName": "ChoiceRole", 
+        {
+          "routeName": "ChoiceRole",
           "name": "Выбор роли"
         },
-        { 
-          "routeName": "Skills", 
+        {
+          "routeName": "Skills",
           "name": "Навыки"
         },
-        { 
-          "routeName": "Profile", 
+        {
+          "routeName": "Profile",
           "name": "Профиль"
         },
-        { 
-          "routeName": "Groups", 
+        {
+          "routeName": "Groups",
           "name": "Группы"
         },
-        { 
-          "routeName": "Vacancies", 
+        {
+          "routeName": "Vacancies",
           "name": "Вакансии"
         },
-        { 
-          "routeName": "Proforientation", 
+        {
+          "routeName": "Proforientation",
           "name": "Профориентация"
         },
-        { 
-          "routeName": "Profession", 
+        {
+          "routeName": "Profession",
           "name": "Менеджер профессий"
         },
-        { 
-          "routeName": "OrientationTest", 
+        {
+          "routeName": "OrientationTest",
           "name": "Менеджер тестов"
         },
-        { 
-          "routeName": "AllTests", 
+        {
+          "routeName": "AllTests",
           "name": "Управление тестами для навыков"
         },
-        { 
-          "routeName": "StudentCourses", 
+        {
+          "routeName": "StudentCourses",
           "name": "Рекомендованные курсы"
         },
-        { 
-          "routeName": "StudentsList", 
+        {
+          "routeName": "StudentsList",
           "name": "Студенты"
         }
       ]
@@ -379,4 +384,4 @@
       ]
     }
   ]
-} 
+}

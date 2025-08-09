@@ -1,0 +1,36 @@
+/* НИЧЕГО ГЛОБАЛЬНОГО НЕ ПЕРЕОПРЕДЕЛЯЕМ! Работаем только внутри .orgs-scope
+   и добавляем компоновку/микро-стили, не трогая .page/.card/.btn/.table темы. */
+
+   .orgs-scope {
+    /* расстояния между блоками */
+    .page__header { margin-bottom: 12px; }
+    .orgs-tabs { margin-bottom: 16px; }
+
+    /* таблицы */
+    .table-wrap { width: 100%; overflow-x: auto; }
+    .table .col-actions { white-space: nowrap; width: 1%; }
+    .row--clickable { cursor: pointer; }
+
+    /* тулбар в header карточки */
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .toolbar__left, .toolbar__right { display: flex; align-items: center; gap: 8px; }
+
+    /* ячейка с аватаром и заголовком */
+    .cell-main { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar--placeholder { opacity: .85; }
+
+    .cell-main__text .title { font-weight: 600; }
+    .slug { font-size: .875rem; opacity: .7; }
+
+    .inline-edit { display: inline-flex; align-items: center; gap: 8px; }
+
+    /* бейджи: оставляем размеры; цвета возьмутся из темы (если есть), иначе дефолт темы */
+    .badge { font-size: .75rem; line-height: 1.2; }
+
+    /* адаптив */
+    @media (max-width: 768px) {
+      .hide-sm { display: none; }
+    }
+  }

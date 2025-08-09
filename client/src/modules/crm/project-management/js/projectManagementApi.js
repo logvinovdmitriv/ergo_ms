@@ -18,13 +18,13 @@ class ProjectManagementApi {
             (config) => {
                 // Используем тот же способ получения токена, что и в manager.js
                 const token = Cookies.get('token');
-                
+
                 if (token) {
                     config.headers.Authorization = `Bearer ${token}`;
                 } else {
                     console.warn('Токен авторизации не найден!')
                 }
-                
+
                 return config;
             },
             (error) => {
@@ -160,22 +160,6 @@ class ProjectManagementApi {
         return await this.client.get('/crm/users/', { params });
     }
 
-    // ОРГАНИЗАЦИИ
-    async getOrganizations() {
-        return await this.client.get('/crm/organizations/');
-    }
-
-    async createOrganization(data) {
-        return await this.client.post('/crm/organizations/', data);
-    }
-
-    async updateOrganization(id, data) {
-        return await this.client.patch(`/crm/organizations/${id}/`, data);
-    }
-    async inviteToOrganization(orgId, data) {
-        return await this.client.post(`/crm/organizations/${orgId}/invite/`, data);
-    }
-
     async getInvites() {
         return await this.client.get('/crm/invites/');
     }
@@ -215,9 +199,9 @@ class ProjectManagementApi {
             const tasks = tasksResponse.data.results || tasksResponse.data;
 
             const now = new Date();
-            const overdueTasks = tasks.filter(task => 
-                task.due_date && 
-                new Date(task.due_date) < now && 
+            const overdueTasks = tasks.filter(task =>
+                task.due_date &&
+                new Date(task.due_date) < now &&
                 task.status !== 'done'
             );
 
@@ -243,7 +227,7 @@ class ProjectManagementApi {
     // Поиск по проектам и задачам
     async search(query, type = 'all') {
         const params = { search: query };
-        
+
         if (type === 'projects') {
             return await this.getProjects(params);
         } else if (type === 'tasks') {
@@ -254,7 +238,7 @@ class ProjectManagementApi {
                 this.getProjects(params),
                 this.getTasks(params)
             ]);
-            
+
             return {
                 projects: projects.data.results || projects.data,
                 tasks: tasks.data.results || tasks.data
@@ -275,7 +259,7 @@ class ProjectManagementApi {
         if (projectId) {
             params.project_id = projectId;
         }
-        
+
         return await this.client.get('/crm/tasks/export/', {
             params,
             responseType: 'blob'
@@ -406,4 +390,4 @@ class ProjectManagementApi {
 }
 
 const projectManagementApi = new ProjectManagementApi();
-export default projectManagementApi; 
+export default projectManagementApi;
