@@ -1,21 +1,21 @@
 /**
  * ГЕНЕРАТОР МАРШРУТОВ ИЗ КОНФИГУРАЦИИ МЕНЮ И МАРШРУТОВ
- * 
+ *
  * Этот модуль генерирует маршруты Vue Router на основе:
  * - menu-config.json - структура меню (иконки, названия, иерархия, ссылки на маршруты)
  * - routes-config.json - полные конфигурации всех доступных маршрутов
- * 
+ *
  * Структура routes-config.json:
  * - coreRoutes - системные маршруты (главная, 404, logout)
  * - authRoutes - маршруты авторизации и BI модуля
  * - routes - основные маршруты приложения
- * 
+ *
  * Основные функции:
  * - generateRoutesFromConfig() - генерирует маршруты для Vue Router
  * - generateCoreRoutes() - генерирует системные и auth маршруты
  * - transformMenuSection() - преобразует секцию меню в маршрут
  * - transformSubItem() - преобразует подэлемент меню в дочерний маршрут
- * 
+ *
  * Использование:
  * import { generateRoutesFromConfig, generateAllRoutes } from '@/config/routes-generator.js'
  * const routes = generateAllRoutes()
@@ -58,7 +58,7 @@ function transformSubItem(item) {
   // Если это группа без маршрута (только children), возвращаем все дочерние маршруты
   if (!item.routeName && (item.children || item.list)) {
     const childRoutes = []
-    
+
     // Обрабатываем children
     if (item.children && item.children.length > 0) {
       const transformedChildren = item.children
@@ -66,7 +66,7 @@ function transformSubItem(item) {
         .filter(child => child !== null)
       childRoutes.push(...transformedChildren)
     }
-    
+
     // Обрабатываем list
     if (item.list && item.list.length > 0) {
       const transformedList = item.list
@@ -74,7 +74,7 @@ function transformSubItem(item) {
         .filter(child => child !== null)
       childRoutes.push(...transformedList)
     }
-    
+
     return childRoutes.length > 0 ? childRoutes : null
   }
 
@@ -106,13 +106,13 @@ function transformSubItem(item) {
 
   // Рекурсивно обрабатываем дочерние элементы
   const childRoutes = []
-  
+
   // Обрабатываем children
   if (item.children && item.children.length > 0) {
     const transformedChildren = item.children
       .map(transformSubItem)
       .filter(child => child !== null)
-    
+
     // Если дочерний элемент вернул массив (группа без маршрута), разворачиваем его
     transformedChildren.forEach(child => {
       if (Array.isArray(child)) {
@@ -122,13 +122,13 @@ function transformSubItem(item) {
       }
     })
   }
-  
+
   // Обрабатываем list
   if (item.list && item.list.length > 0) {
     const transformedList = item.list
       .map(transformSubItem)
       .filter(child => child !== null)
-      
+
     // Если дочерний элемент вернул массив (группа без маршрута), разворачиваем его
     transformedList.forEach(child => {
       if (Array.isArray(child)) {
@@ -180,13 +180,13 @@ function transformMenuSection(section) {
 
   // Обрабатываем дочерние маршруты из list и children
   const childRoutes = []
-  
+
   // Обрабатываем children
   if (section.children && section.children.length > 0) {
     const transformedChildren = section.children
       .map(transformSubItem)
       .filter(child => child !== null)
-      
+
     // Если дочерний элемент вернул массив (группа без маршрута), разворачиваем его
     transformedChildren.forEach(child => {
       if (Array.isArray(child)) {
@@ -196,13 +196,13 @@ function transformMenuSection(section) {
       }
     })
   }
-  
+
   // Обрабатываем list
   if (section.list && section.list.length > 0) {
     const transformedList = section.list
       .map(transformSubItem)
       .filter(child => child !== null)
-      
+
     // Если дочерний элемент вернул массив (группа без маршрута), разворачиваем его
     transformedList.forEach(child => {
       if (Array.isArray(child)) {
@@ -229,7 +229,7 @@ export function generateRoutesFromConfig() {
     const routes = menuConfig.menuSections
       .map(transformMenuSection)
       .filter(route => route !== null) // Убираем невалидные маршруты
-    
+
     return routes
   } catch {
     return []
@@ -256,12 +256,12 @@ function transformComponentPath(componentPath) {
  */
 function transformRoute(route) {
   const transformedRoute = { ...route }
-  
+
   // Преобразуем строковый путь компонента в динамический импорт
   if (route.component && typeof route.component === 'string') {
     transformedRoute.component = transformComponentPath(route.component)
   }
-  
+
   return transformedRoute
 }
 
@@ -296,7 +296,7 @@ function loadAuthRoutes() {
 export function generateCoreRoutes() {
   const coreRoutes = loadCoreRoutes()
   const authRoutes = loadAuthRoutes()
-  
+
   return [...coreRoutes, ...authRoutes]
 }
 
@@ -352,14 +352,14 @@ export function isAuthRoute(routeName) {
  */
 function getCreatedRouteNames(routes) {
   const names = new Set()
-  
+
   function extractNames(routeArray) {
     routeArray.forEach(route => {
       if (route.name) names.add(route.name)
       if (route.children) extractNames(route.children)
     })
   }
-  
+
   extractNames(routes)
   return names
 }
@@ -400,7 +400,7 @@ function createStandaloneRoute(routeName, routeConfig) {
  */
 function generateMissingRoutes(createdRouteNames) {
   const missingRoutes = []
-  
+
   // Проходим по всем маршрутам в routes-config.json
   Object.entries(routesConfig.routes).forEach(([routeName, routeConfig]) => {
     // Если маршрут не был создан через меню, создаем его отдельно
@@ -413,7 +413,7 @@ function generateMissingRoutes(createdRouteNames) {
       }
     }
   })
-  
+
   return missingRoutes
 }
 
@@ -424,13 +424,13 @@ function generateMissingRoutes(createdRouteNames) {
 export function generateAllRoutes() {
   const coreRoutes = generateCoreRoutes()
   const menuRoutes = generateRoutesFromConfig()
-  
+
   // Получаем имена уже созданных маршрутов
   const createdRouteNames = getCreatedRouteNames([...coreRoutes, ...menuRoutes])
-  
+
   // Создаем недостающие маршруты из routes-config.json
   const missingRoutes = generateMissingRoutes(createdRouteNames)
-  
+
   return [
     ...coreRoutes,
     ...menuRoutes,
@@ -449,41 +449,41 @@ export function generateAllRoutes() {
 export function generateAdaptiveSeparators() {
   const separators = {}
   const menuSections = menuConfig.menuSections
-  
+
   // Обрабатываем каждый раздел и ищем места для separators
   for (let i = 0; i < menuSections.length; i++) {
     const section = menuSections[i]
-    
+
     // Проверяем, есть ли separator для данной позиции в конфигурации
     if (menuConfig.separators) {
       // Ищем separator по индексу в массиве
       const separatorByIndex = Object.keys(menuConfig.separators).find(key => {
         return parseInt(key) === i
       })
-      
+
       if (separatorByIndex) {
         separators[i] = menuConfig.separators[separatorByIndex]
         continue
       }
-      
+
       // Ищем separator по id элемента
       const separatorById = menuConfig.separators[section.id?.toString()]
       if (separatorById) {
         separators[i] = separatorById
         continue
       }
-      
+
       // Ищем separator по имени роута
       const separatorByRoute = Object.keys(menuConfig.separators).find(key => {
         return key === section.routeName
       })
-      
+
       if (separatorByRoute) {
         separators[i] = menuConfig.separators[separatorByRoute]
       }
     }
   }
-  
+
   return separators
 }
 
@@ -513,7 +513,7 @@ export function shouldShowSeparator(index) {
 export function getMenuWithSeparators() {
   const menuSections = menuConfig.menuSections
   const separators = generateAdaptiveSeparators()
-  
+
   return {
     sections: menuSections,
     separators: separators,
@@ -547,14 +547,14 @@ export function updateSeparatorsConfig(newSeparators) {
 export function getAllRouteNames() {
   const routes = generateRoutesFromConfig()
   const names = []
-  
+
   function extractNames(routeArray) {
     routeArray.forEach(route => {
       if (route.name) names.push(route.name)
       if (route.children) extractNames(route.children)
     })
   }
-  
+
   extractNames(routes)
   return names
 }
@@ -585,14 +585,14 @@ export function getRoutesDebugInfo() {
   const menuRoutes = generateRoutesFromConfig()
   const createdRouteNames = getCreatedRouteNames([...coreRoutes, ...menuRoutes])
   const missingRoutes = generateMissingRoutes(createdRouteNames)
-  
+
   return {
     totalRoutes: coreRoutes.length + menuRoutes.length + missingRoutes.length,
     coreRoutesCount: coreRoutes.length,
     menuRoutesCount: menuRoutes.length,
     missingRoutesCount: missingRoutes.length,
     coreRouteNames: coreRoutes.map(r => r.name).filter(Boolean),
-    menuRouteNames: Array.from(createdRouteNames).filter(name => 
+    menuRouteNames: Array.from(createdRouteNames).filter(name =>
       !coreRoutes.some(r => r.name === name)
     ),
     missingRouteNames: missingRoutes.map(r => r.name).filter(Boolean),
@@ -607,7 +607,7 @@ export function getRoutesDebugInfo() {
 export function validateRoutesConfig() {
   const errors = []
   const warnings = []
-  
+
   try {
     menuConfig.menuSections.forEach((section, index) => {
       const routeConfig = getRouteConfig(section.routeName)
@@ -615,15 +615,15 @@ export function validateRoutesConfig() {
         warnings.push(`Секция ${index + 1} "${section.title}" не содержит конфигурации маршрута`)
         return
       }
-      
+
       if (!routeConfig.component) {
         errors.push(`Секция "${section.title}" не содержит component`)
       }
-      
+
       if (!routeConfig.path) {
         errors.push(`Секция "${section.title}" не содержит path`)
       }
-      
+
       // Валидация дочерних маршрутов
       if (section.list) {
         section.list.forEach(item => {
@@ -637,10 +637,10 @@ export function validateRoutesConfig() {
   } catch (error) {
     errors.push(`Ошибка чтения конфигурации: ${error.message}`)
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
     warnings
   }
-} 
+}
