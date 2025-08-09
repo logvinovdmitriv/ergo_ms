@@ -4,6 +4,9 @@
     <section class="card">
       <header class="card__header">
         <h2 class="card__title">Общая информация</h2>
+        <div class="toolbar" v-if="canDelete">
+          <button class="btn btn--sm btn--danger" @click="deleteOrg">Удалить</button>
+        </div>
       </header>
 
       <div class="card__body">
@@ -111,7 +114,18 @@
                     </div>
                   </div>
                 </td>
-                <td><span class="badge badge--outline">{{ m.role }}</span></td>
+                <td>
+                  <template v-if="canManage && m.role !== 'owner'">
+                    <select v-model="m.role" class="select select--xs" @change="changeRole(m.user.id, m.role)">
+                      <option value="admin">admin</option>
+                      <option value="member">member</option>
+                      <option value="viewer">viewer</option>
+                    </select>
+                  </template>
+                  <template v-else>
+                    <span class="badge badge--outline">{{ m.role }}</span>
+                  </template>
+                </td>
                 <td>
                   <span class="badge" :class="m.status === 'accepted' ? 'badge--success' : 'badge--muted'">
                     {{ m.status }}
@@ -174,7 +188,7 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import OrganizationApi from './js/organizationApi.js';
 import OrganizationInviteModal from './components/OrganizationInviteModal.vue';
 
@@ -184,6 +198,7 @@ export default {
   setup() {
     const store = useStore();
     const route = useRoute();
+    const router = useRouter();
     const userId = store.state?.auth?.user?.id;
     const id = Number(route.params.id);
 
@@ -258,6 +273,7 @@ export default {
       isOwner.value || members.value.some(m => m.user?.id === userId && (m.role === 'admin' || m.role === 'owner'))
     );
     const canManage = canInvite;
+    const canDelete = isOwner;
 
     // helpers
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
@@ -267,6 +283,17 @@ export default {
       if (!confirm('Удалить участника из организации?')) return;
       await OrganizationApi.removeOrganizationMember(id, userIdToRemove);
       await loadMembers();
+    };
+
+    const changeRole = async (userIdToChange, role) => {
+      await OrganizationApi.updateOrganizationMember(id, userIdToChange, { role });
+      await loadMembers();
+    };
+
+    const deleteOrg = async () => {
+      if (!confirm('Удалить организацию?')) return;
+      await OrganizationApi.deleteOrganization(id);
+      router.push({ name: 'OrganizationList' });
     };
 
     const onInviteSubmit = async ({ email, role }) => {
@@ -288,7 +315,7 @@ export default {
       org, members, projects,
       loadingOrg, loadingMembers, loadingProjects,
       showInvite, inviting, onInviteSubmit,
-      myRole, canInvite, canManage, initials, removeMember,
+      myRole, canInvite, canManage, canDelete, initials, removeMember, changeRole, deleteOrg,
       normalizedWebsite, displayWebsite, telHref, membersCount
     };
   }

@@ -55,6 +55,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             responded_at=timezone.now()
         )
 
+    def destroy(self, request, *args, **kwargs):
+        organization = self.get_object()
+        if organization.owner != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=True, methods=['post'])
     def invite(self, request, pk=None):
         """Пригласить пользователя в организацию"""
@@ -96,6 +102,30 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = OrganizationMemberSerializer(organization.memberships.all(), many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['patch', 'delete'], url_path='members/(?P<user_id>[^/.]+)')
+    def manage_member(self, request, pk=None, user_id=None):
+        """Изменение роли или удаление участника"""
+        organization = self.get_object()
+        if not (organization.owner == request.user or OrganizationMember.objects.filter(organization=organization, user=request.user, role__in=['owner', 'admin'], status='accepted').exists()):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        try:
+            member = OrganizationMember.objects.get(organization=organization, user_id=user_id)
+        except OrganizationMember.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if request.method == 'PATCH':
+            role = request.data.get('role')
+            if role not in dict(OrganizationMember.ROLE_CHOICES) or role == 'owner':
+                return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+            member.role = role
+            member.save()
+            return Response(OrganizationMemberSerializer(member).data)
+
+        if member.role == 'owner':
+            return Response({'error': 'cannot remove owner'}, status=status.HTTP_400_BAD_REQUEST)
+        member.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class OrganizationInviteViewSet(viewsets.ViewSet):

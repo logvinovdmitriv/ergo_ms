@@ -25,8 +25,9 @@ class OrganizationApi {
   archiveOrganization(id) { return this.client.post(`/crm/organizations/${id}/archive`); }
 
   // Участники
-  getOrganizationMembers(id) { return this.client.get(`/crm/organizations/${id}/members`); }
-  removeOrganizationMember(orgId, userId) { return this.client.delete(`/crm/organizations/${orgId}/members/${userId}`); }
+  getOrganizationMembers(id) { return this.client.get(`/crm/organizations/${id}/members/`); }
+  updateOrganizationMember(orgId, userId, data) { return this.client.patch(`/crm/organizations/${orgId}/members/${userId}/`, data); }
+  removeOrganizationMember(orgId, userId) { return this.client.delete(`/crm/organizations/${orgId}/members/${userId}/`); }
 
   // Инвайты (внутри организации)
   inviteToOrganization(orgId, data) { return this.client.post(`/crm/organizations/${orgId}/invite/`, data); }
@@ -38,6 +39,8 @@ class OrganizationApi {
 
   // Проекты (по организации)
   getProjects(orgId) { return this.client.get('/crm/projects/', { params: { organization_id: orgId } }); }
+
+  deleteOrganization(id) { return this.client.delete(`/crm/organizations/${id}/`); }
 }
 
 export default new OrganizationApi();
