@@ -1,31 +1,25 @@
 <template>
-  <div class="orgs-modal">
-    <div class="orgs-modal__backdrop" @click="$emit('close')" />
-
-    <div class="orgs-modal__dialog" role="dialog" aria-modal="true">
-      <header class="orgs-modal__header">
-        <h3 class="orgs-modal__title">Пригласить участника</h3>
-        <button class="orgs-modal__close btn btn--ghost" @click="$emit('close')" aria-label="Закрыть">✕</button>
+  <div class="modal-backdrop" @click.self="$emit('close')">
+    <div class="modal card">
+      <header class="card__header">
+        <h3 class="card__title">Пригласить участника</h3>
       </header>
-
-      <form class="orgs-modal__body" @submit.prevent="$emit('submit', { email, role })">
+      <form class="card__body" @submit.prevent="submit">
         <div class="form-row">
-          <label>Email</label>
-          <input v-model.trim="email" class="input" type="email" required placeholder="user@example.com" />
+          <label>Email<span class="req">*</span></label>
+          <input v-model.trim="email" type="email" class="input" required placeholder="user@example.com" />
         </div>
-
         <div class="form-row">
           <label>Роль</label>
-          <select v-model="role" class="select" required>
+          <select v-model="role" class="select">
             <option value="member">member</option>
             <option value="viewer">viewer</option>
             <option value="admin">admin</option>
           </select>
         </div>
-
-        <footer class="orgs-modal__actions">
-          <button type="button" class="btn btn--ghost" @click="$emit('close')">Отмена</button>
-          <button type="submit" class="btn btn--primary" :disabled="loading">Отправить</button>
+        <footer class="form-actions">
+          <button class="btn btn--primary" :disabled="loading" type="submit">Отправить</button>
+          <button class="btn btn--ghost" type="button" @click="$emit('close')">Отмена</button>
         </footer>
       </form>
     </div>
@@ -33,19 +27,18 @@
 </template>
 
 <script>
-import { ref, watchEffect } from 'vue';
 export default {
   name: 'OrganizationInviteModal',
-  props: { org: Object, loading: Boolean },
-  setup() {
-    const email = ref('');
-    const role = ref('member');
-
-    watchEffect(() => {
-      // сброс при открытии/закрытии можно добавить по месту
-    });
-
-    return { email, role };
+  props: { org: { type: Object, required: true }, loading: Boolean },
+  emits: ['close', 'submit'],
+  data: () => ({ email: '', role: 'member' }),
+  methods: {
+    submit() { this.$emit('submit', { email: this.email, role: this.role }); }
   }
-};
+}
 </script>
+
+<style scoped>
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{width:min(560px, 92vw)}
+</style>

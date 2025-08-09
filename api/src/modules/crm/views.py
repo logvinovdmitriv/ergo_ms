@@ -55,11 +55,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             responded_at=timezone.now()
         )
 
-    def destroy(self, request, *args, **kwargs):
+    def destroy(self, request, pk=None):
+        """Удаление организации: разрешено только владельцу."""
         organization = self.get_object()
-        if organization.owner != request.user:
+        if organization.owner_id != request.user.id:
             return Response(status=status.HTTP_403_FORBIDDEN)
-        return super().destroy(request, *args, **kwargs)
+        organization.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'])
     def invite(self, request, pk=None):
@@ -186,14 +188,14 @@ class ProjectStatusViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'code', 'description']
     ordering_fields = ['order', 'name', 'created_at']
     ordering = ['order', 'name']
-    
+
     @action(detail=False, methods=['get'])
     def active(self, request):
         """Получить только активные статусы"""
         queryset = self.get_queryset().filter(is_active=True)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-    
+
     @action(detail=False, methods=['get'])
     def default(self, request):
         """Получить статус по умолчанию"""
@@ -214,14 +216,14 @@ class ProjectPriorityViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'code', 'description']
     ordering_fields = ['level', 'name', 'created_at']
     ordering = ['level', 'name']
-    
+
     @action(detail=False, methods=['get'])
     def active(self, request):
         """Получить только активные приоритеты"""
         queryset = self.get_queryset().filter(is_active=True)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-    
+
     @action(detail=False, methods=['get'])
     def default(self, request):
         """Получить приоритет по умолчанию"""
@@ -242,21 +244,21 @@ class TaskStatusViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'code', 'description']
     ordering_fields = ['order', 'name', 'created_at']
     ordering = ['order', 'name']
-    
+
     @action(detail=False, methods=['get'])
     def active(self, request):
         """Получить только активные статусы"""
         queryset = self.get_queryset().filter(is_active=True)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-    
+
     @action(detail=False, methods=['get'])
     def kanban_columns(self, request):
         """Получить статусы для колонок канбан (все активные статусы)"""
         queryset = self.get_queryset().filter(is_active=True)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-    
+
     @action(detail=False, methods=['get'])
     def default(self, request):
         """Получить статус по умолчанию"""
@@ -277,14 +279,14 @@ class TaskPriorityViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'code', 'description']
     ordering_fields = ['level', 'name', 'created_at']
     ordering = ['level', 'name']
-    
+
     @action(detail=False, methods=['get'])
     def active(self, request):
         """Получить только активные приоритеты"""
         queryset = self.get_queryset().filter(is_active=True)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-    
+
     @action(detail=False, methods=['get'])
     def default(self, request):
         """Получить приоритет по умолчанию"""
@@ -305,20 +307,20 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     search_fields = ['name', 'description']
     ordering_fields = ['created_at', 'start_date', 'end_date', 'priority']
     ordering = ['-created_at']
-    
+
     def get_serializer_class(self):
         if self.action == 'list':
             return ProjectListSerializer
         return ProjectSerializer
-    
+
     def get_queryset(self):
         if self.is_swagger_fake_view():
             return Project.objects.none()
-            
+
         user = self.get_safe_user()
         if not user:
             return Project.objects.none()
-            
+
         queryset = super().get_queryset()
 
         # Показываем только проекты организаций, где пользователь является владельцем
@@ -331,51 +333,51 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             Q(manager=user) |
             Q(team_members=user)
         ).distinct()
-        
+
         # Дополнительный фильтр "Мои проекты" (оставляем для совместимости)
         my_projects = self.request.query_params.get('my_projects', None)
         if my_projects and my_projects.lower() == 'false':
             # Если явно указано false, показываем все доступные проекты
             queryset = super().get_queryset()
-        
+
         return queryset
-    
+
     @action(detail=True, methods=['post'])
     def add_member(self, request, pk=None):
         """Добавить участника в проект"""
         project = self.get_object()
         serializer = ProjectMemberSerializer(data=request.data)
-        
+
         if serializer.is_valid():
             try:
                 # Проверяем, не является ли пользователь уже участником
                 user_id = serializer.validated_data['user_id']
                 if ProjectMember.objects.filter(project=project, user_id=user_id).exists():
-                    return Response({'error': 'Пользователь уже является участником проекта'}, 
+                    return Response({'error': 'Пользователь уже является участником проекта'},
                                   status=status.HTTP_400_BAD_REQUEST)
-                
+
                 member = serializer.save(project=project)
-                
+
                 # Возвращаем полные данные участника
                 response_serializer = ProjectMemberSerializer(member)
                 return Response(response_serializer.data, status=status.HTTP_201_CREATED)
             except Exception as e:
                 return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     @action(detail=True, methods=['delete'])
     def remove_member(self, request, pk=None):
         """Удалить участника из проекта"""
         project = self.get_object()
         user_id = request.data.get('user_id')
-        
+
         try:
             membership = ProjectMember.objects.get(project=project, user_id=user_id)
             membership.delete()
             return Response({'message': 'Участник удален из проекта'})
         except ProjectMember.DoesNotExist:
             return Response({'error': 'Участник не найден'}, status=status.HTTP_404_NOT_FOUND)
-    
+
     @action(detail=True, methods=['get'])
     def tasks(self, request, pk=None):
         """Получить задачи проекта"""
@@ -383,31 +385,31 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         tasks = project.tasks.all()
         serializer = TaskListSerializer(tasks, many=True)
         return Response(serializer.data)
-    
+
     @action(detail=True, methods=['get'])
     def statistics(self, request, pk=None):
         """Получить статистику проекта"""
         project = self.get_object()
-        
+
         total_tasks = project.tasks.count()
-        
+
         # Завершенные задачи с учетом новой и старой системы статусов
         completed_tasks = project.tasks.filter(
             Q(status_ref__is_final=True, status_ref__is_active=True) | Q(status='done')
         ).count()
-        
+
         # Задачи в работе с учетом новой системы
         in_progress_tasks = project.tasks.filter(
             Q(status_ref__code='in_progress', status_ref__is_active=True) | Q(status='in_progress')
         ).count()
-        
+
         # Просроченные задачи - которые не завершены и срок прошел
         overdue_tasks = project.tasks.filter(
             due_date__lt=timezone.now()
         ).exclude(
             Q(status_ref__is_final=True, status_ref__is_active=True) | Q(status='done')
         ).count()
-        
+
         return Response({
             'total_tasks': total_tasks,
             'completed_tasks': completed_tasks,
@@ -426,7 +428,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     search_fields = ['title', 'description']
     ordering_fields = ['created_at', 'due_date', 'priority', 'kanban_order']
     ordering = ['kanban_order', '-created_at']
-    
+
     def get_serializer_class(self):
         if self.action == 'list':
             return TaskListSerializer
@@ -435,15 +437,15 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         elif self.action == 'kanban':
             return TaskKanbanSerializer
         return TaskSerializer
-    
+
     def get_queryset(self):
         if self.is_swagger_fake_view():
             return Task.objects.none()
-            
+
         user = self.get_safe_user()
         if not user:
             return Task.objects.none()
-            
+
         queryset = super().get_queryset()
 
         # Ограничиваем задачи организациями, где пользователь владелец
@@ -468,7 +470,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
                 Q(assignee=user) |
                 Q(creator=user)
             ).distinct()
-        
+
         # Фильтр по дате для календаря
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
@@ -477,28 +479,28 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
                 Q(start_date__range=[start_date, end_date]) |
                 Q(due_date__range=[start_date, end_date])
             )
-        
+
         return queryset
-    
+
     @action(detail=False, methods=['get'])
     def calendar(self, request):
         """Получить задачи для календаря"""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
-        
+
         if not start_date or not end_date:
             # По умолчанию текущий месяц
             now = timezone.now()
             start_date = now.replace(day=1).date()
             end_date = (start_date + timedelta(days=31)).replace(day=1) - timedelta(days=1)
-        
+
         tasks = self.get_queryset().filter(
             Q(start_date__range=[start_date, end_date]) |
             Q(due_date__range=[start_date, end_date])
         )
-        
+
         serializer = TaskCalendarSerializer(tasks, many=True)
-        
+
         # Преобразуем в формат для календаря
         events = []
         for task in serializer.data:
@@ -513,7 +515,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
                     'type': 'start',
                     'task_data': task
                 })
-            
+
             # Событие срока выполнения
             if task['due_date']:
                 events.append({
@@ -525,9 +527,9 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
                     'type': 'due',
                     'task_data': task
                 })
-        
+
         return Response({'events': events})
-    
+
     def get_task_color(self, priority, status):
         """Получить цвет задачи для календаря"""
         if status == 'done':
@@ -542,7 +544,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             return '#007bff'  # Синий для среднего приоритета
         else:
             return '#6f42c1'  # Фиолетовый для низкого приоритета
-    
+
     def get_due_color(self, priority, status):
         """Получить цвет срока выполнения"""
         if status == 'done':
@@ -551,7 +553,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             return '#dc3545'
         else:
             return '#ffc107'  # Желтый для сроков
-    
+
     @action(detail=False, methods=['get'])
     def kanban(self, request):
         """Получить задачи для канбан доски"""
@@ -559,19 +561,19 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         priority = request.query_params.get('priority')
         assignee = request.query_params.get('assignee')
         ordering = request.query_params.get('ordering', 'kanban_order')
-        
+
         queryset = self.get_queryset()
-        
+
         # Применяем фильтры
         if project_id:
             queryset = queryset.filter(project_id=project_id)
-        
+
         if priority:
             queryset = queryset.filter(priority=priority)
-            
+
         if assignee:
             queryset = queryset.filter(assignee_id=assignee)
-        
+
         # Применяем сортировку
         ordering_fields = {
             'kanban_order': ['kanban_order', '-created_at'],
@@ -584,11 +586,11 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             'assignee': ['assignee__first_name', 'assignee__last_name', '-created_at'],
             '-assignee': ['-assignee__first_name', '-assignee__last_name', '-created_at']
         }
-        
+
         # Применяем сортировку с fallback
         ordering_list = ordering_fields.get(ordering, ['kanban_order', '-created_at'])
         queryset = queryset.order_by(*ordering_list)
-        
+
         # Получаем все активные статусы задач
         try:
             # Используем все активные статусы
@@ -596,10 +598,10 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         except Exception:
             # Fallback: используем старые статусы
             kanban_statuses = []
-        
+
         # Группируем по статусам
         kanban_data = {}
-        
+
         if kanban_statuses:
             # Используем динамические статусы
             for status in kanban_statuses:
@@ -613,37 +615,37 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
                 tasks = queryset.filter(status=status_key)
                 serializer = TaskKanbanSerializer(tasks, many=True)
                 kanban_data[status_key] = serializer.data
-        
+
         return Response(kanban_data)
-    
+
     @action(detail=True, methods=['post'])
     def update_kanban_order(self, request, pk=None):
         """Обновить порядок задач в канбан"""
         task = self.get_object()
         new_order = request.data.get('order')
         new_status = request.data.get('status')
-        
+
         if new_order is not None:
             task.kanban_order = new_order
-        
+
         if new_status:
             # Проверяем существование статуса в новой системе
             try:
                 status_obj = TaskStatus.objects.get(code=new_status, is_active=True)
                 task.status = new_status
                 task.status_ref = status_obj
-                
+
                 # Если задача помечена как выполненная
                 if status_obj.is_final and not task.completed_at:
                     task.completed_at = timezone.now()
                 elif not status_obj.is_final:
                     task.completed_at = None
-                
+
             except TaskStatus.DoesNotExist:
                 # Fallback: проверяем по старым choices
                 if new_status in dict(Task.TASK_STATUS_CHOICES):
                     task.status = new_status
-                    
+
                     # Для обратной совместимости
                     if new_status == 'done' and not task.completed_at:
                         task.completed_at = timezone.now()
@@ -651,71 +653,71 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
                         task.completed_at = None
                 else:
                     return Response({'error': f'Неверный статус: {new_status}'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         task.save()
         return Response({'message': 'Порядок задач обновлен'})
-    
+
     @action(detail=True, methods=['post'])
     def change_status(self, request, pk=None):
         """Изменить статус задачи"""
         task = self.get_object()
         new_status = request.data.get('status')
-        
+
         if new_status not in dict(Task.TASK_STATUS_CHOICES):
             return Response({'error': 'Неверный статус'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         task.status = new_status
-        
+
         if new_status == 'done':
             task.completed_at = timezone.now()
         elif new_status == 'in_progress' and not task.start_date:
             task.start_date = timezone.now()
-        
+
         task.save()
         return Response({'message': 'Статус задачи изменен'})
-    
+
     @action(detail=True, methods=['post'])
     def add_comment(self, request, pk=None):
         """Добавить комментарий к задаче"""
         task = self.get_object()
         serializer = TaskCommentSerializer(data=request.data, context={'request': request})
-        
+
         if serializer.is_valid():
             serializer.save(task=task)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     @action(detail=True, methods=['post'])
     def add_time_log(self, request, pk=None):
         """Добавить учет времени"""
         task = self.get_object()
         serializer = TimeLogSerializer(data=request.data, context={'request': request})
-        
+
         if serializer.is_valid():
             serializer.save(task=task)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     @action(detail=False, methods=['post'])
     def create_from_calendar(self, request):
         """Создать задачу из календаря"""
         data = request.data.copy()
-        
+
         # Если не указан проект, пытаемся найти активный проект пользователя
         if not data.get('project_id'):
             active_project = Project.objects.filter(
                 Q(owner=request.user) | Q(manager=request.user),
                 status='active'
             ).first()
-            
+
             if active_project:
                 data['project_id'] = active_project.id
             else:
                 return Response(
-                    {'error': 'Необходимо указать проект'}, 
+                    {'error': 'Необходимо указать проект'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        
+
         serializer = TaskSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
@@ -728,7 +730,7 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
     queryset = TaskComment.objects.all()
     serializer_class = TaskCommentSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         queryset = super().get_queryset()
         task_id = self.request.query_params.get('task_id')
@@ -745,21 +747,21 @@ class TimeLogViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['task', 'user', 'date']
     ordering = ['-date', '-created_at']
-    
+
     def get_queryset(self):
         if self.is_swagger_fake_view():
             return TimeLog.objects.none()
-            
+
         user = self.get_safe_user()
         if not user:
             return TimeLog.objects.none()
-            
+
         queryset = super().get_queryset()
         task_id = self.request.query_params.get('task_id')
         if task_id:
             queryset = queryset.filter(task_id=task_id)
         return queryset
-    
+
     @action(detail=False, methods=['get'])
     def my_time_logs(self, request):
         """Получить мои записи времени"""
