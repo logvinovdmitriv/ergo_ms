@@ -177,6 +177,11 @@
               "name": "Проекты и задачи"
             }
           ]
+        },
+        {
+          "icon": "Building",
+          "routeName": "Organizations",
+          "name": "Организации"
         }
       ]
     },
