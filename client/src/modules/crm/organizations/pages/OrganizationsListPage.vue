@@ -8,5 +8,8 @@
 import OrgPageShell from '../components/OrgPageShell.vue';
 import OrganizationsList from '../OrganizationsList.vue';
 
-export default { name: 'OrganizationListPage', components: { OrgPageShell, OrganizationsList } };
+export default {
+  name: 'OrganizationListPage',
+  components: { OrgPageShell, OrganizationsList }
+};
 </script>

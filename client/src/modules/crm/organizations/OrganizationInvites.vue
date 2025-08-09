@@ -26,7 +26,9 @@
             </tr>
             <tr v-for="invite in invites" :key="invite.id">
               <td>{{ invite.organization?.name || invite.organization }}</td>
-              <td class="hide-sm"><span class="badge badge--outline">{{ invite.role || 'member' }}</span></td>
+              <td class="hide-sm">
+                <span class="badge badge--outline">{{ invite.role || 'member' }}</span>
+              </td>
               <td class="hide-sm"><span class="muted">{{ invite.expires_at ? formatDate(invite.expires_at) : '—' }}</span></td>
               <td class="col-actions">
                 <button class="btn btn--xs btn--primary" @click="accept(invite.token)">Принять</button>
@@ -60,8 +62,20 @@ export default {
       }
     };
 
-    const accept = async (token) => { try { await OrganizationApi.acceptInvite(token); } finally { await load(); } };
-    const decline = async (token) => { try { await OrganizationApi.declineInvite(token); } finally { await load(); } };
+    const accept = async (token) => {
+      try {
+        await OrganizationApi.acceptInvite(token);
+      } finally {
+        await load();
+      }
+    };
+    const decline = async (token) => {
+      try {
+        await OrganizationApi.declineInvite(token);
+      } finally {
+        await load();
+      }
+    };
 
     const formatDate = (iso) => new Date(iso).toLocaleString();
 

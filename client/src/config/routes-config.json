@@ -565,22 +565,22 @@
     },
     "OrganizationList": {
       "path": "/crm/organizations/list",
-      "component": "@/modules/crm/organizations/pages/OrganizationListPage.vue",
+      "component": "@/modules/crm/organizations/pages/OrganizationsListPage.vue",
       "meta": { "title": "Список организаций", "requiresAuth": true }
     },
     "OrganizationNew": {
       "path": "/crm/organizations/new",
-      "component": "@/modules/crm/organizations/pages/OrganizationNewPage.vue",
+      "component": "@/modules/crm/organizations/pages/OrganizationsNewPage.vue",
       "meta": { "title": "Создать организацию", "requiresAuth": true }
     },
     "OrganizationDetails": {
       "path": "/crm/organizations/:id",
-      "component": "@/modules/crm/organizations/pages/OrganizationDetailsPage.vue",
+      "component": "@/modules/crm/organizations/pages/OrganizationsDetailsPage.vue",
       "meta": { "title": "Детали организации", "requiresAuth": true }
     },
     "OrganizationInvites": {
       "path": "/crm/invites",
-      "component": "@/modules/crm/organizations/pages/OrganizationInvitesPage.vue",
+      "component": "@/modules/crm/organizations/pages/OrganizationsInvitesPage.vue",
       "meta": { "title": "Приглашения", "requiresAuth": true }
     },
     "LMS": {

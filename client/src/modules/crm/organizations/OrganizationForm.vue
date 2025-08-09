@@ -2,7 +2,6 @@
   <section class="card">
     <header class="card__header">
       <h2 class="card__title">Новая организация</h2>
-      <div class="muted">Заполните форму для создания новой организации</div>
     </header>
 
     <form class="card__body form-grid" @submit.prevent="save">
@@ -134,7 +133,7 @@ export default {
 
     const save = async () => {
       await OrganizationApi.createOrganization({ ...form });
-      router.push({ name: 'OrganizationsList' });
+      router.push({ name: 'OrganizationList' });
     };
 
     return { form, save, saving };

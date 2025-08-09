@@ -9,7 +9,7 @@
         </div>
         <div class="toolbar__right">
           <button class="btn btn--sm btn--ghost" @click="load" :disabled="loading">Обновить</button>
-          <router-link class="btn btn--sm btn--primary" :to="{ name: 'OrganizationNew' }">Создать</router-link>
+          <router-link class="btn btn--sm btn--primary" to="/crm/organizations/new">Создать</router-link>
         </div>
       </div>
     </header>
@@ -17,7 +17,7 @@
     <div class="card__body">
       <div v-if="!loading && filtered.length === 0" class="empty">
         <p class="muted">Пока нет организаций.</p>
-        <router-link class="btn btn--primary btn--sm" :to="{ name: 'OrganizationNew' }">Создать первую</router-link>
+        <router-link class="btn btn--primary btn--sm" to="/crm/organizations/new">Создать первую</router-link>
       </div>
 
       <div v-else class="table-wrap">
@@ -31,14 +31,18 @@
               <th class="col-actions">Действия</th>
             </tr>
           </thead>
-
           <tbody>
             <tr v-if="loading">
               <td colspan="5"><div class="skeleton skeleton--row"></div></td>
             </tr>
 
-            <tr v-for="org in filtered" :key="org.id" class="row--clickable">
-              <td @click="goDetails(org.id)">
+            <tr
+              v-for="org in filtered"
+              :key="org.id"
+              class="row--clickable"
+              @click="goDetails(org.id)"
+            >
+              <td>
                 <div class="cell-main">
                   <div class="avatar" v-if="org.logo_url"><img :src="org.logo_url" alt="" /></div>
                   <div class="avatar avatar--placeholder" v-else>{{ org.name?.[0] || 'О' }}</div>
@@ -49,7 +53,6 @@
                       <button class="btn btn--sm btn--primary" @click="saveEdit(org.id)">Сохранить</button>
                       <button class="btn btn--sm btn--ghost" @click="cancelEdit">Отмена</button>
                     </div>
-
                     <template v-else>
                       <div class="title">
                         {{ org.name }}
@@ -72,7 +75,9 @@
               </td>
 
               <td>
-                <span class="badge badge--neutral">{{ org.members_count ?? org.members?.length ?? 0 }}</span>
+                <span class="badge badge--neutral">
+                  {{ org.members_count ?? org.members?.length ?? 0 }}
+                </span>
               </td>
 
               <td class="col-actions" @click.stop>
@@ -81,11 +86,14 @@
                   class="btn btn--xs btn--link"
                   title="Редактировать"
                   @click="startEdit(org)"
-                >Редактировать</button>
-
-                <button class="btn btn--xs btn--link" title="Открыть" @click="goDetails(org.id)">
-                  Открыть
+                >
+                  Редактировать
                 </button>
+                <router-link
+                  class="btn btn--xs btn--link"
+                  :to="`/crm/organizations/${org.id}`"
+                  title="Открыть"
+                >Открыть</router-link>
               </td>
             </tr>
           </tbody>
@@ -132,7 +140,7 @@ export default {
     });
 
     const isOwner = (org) => org?.owner && org.owner.id === userId;
-    const myRole  = (org) => (isOwner(org) ? 'owner' : (org.my_role || 'member'));
+    const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_role || 'member'));
 
     const startEdit = (org) => { editingId.value = org.id; editName.value = org.name; };
     const cancelEdit = () => { editingId.value = null; };
@@ -142,9 +150,10 @@ export default {
       await load();
     };
 
-    const goDetails = (id) => router.push({ name: 'OrganizationDetails', params: { id } });
+    const goDetails = (id) => router.push(`/crm/organizations/${id}`);
 
     onMounted(load);
+
     return {
       organizations, loading, q,
       editingId, editName, startEdit, cancelEdit, saveEdit,
