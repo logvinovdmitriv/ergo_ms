@@ -38,7 +38,6 @@ export default {
       newOrg.value = '';
       await load();
     };
-
     onMounted(load);
 
     return { organizations, newOrg, createOrganization, userId };

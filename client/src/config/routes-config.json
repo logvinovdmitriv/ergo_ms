@@ -565,7 +565,6 @@
         "requiresAuth": true
       }
     },
-
     "OrganizationInvites": {
       "path": "/crm/invites",
       "component": "@/modules/crm/project-management/OrganizationInvites.vue",

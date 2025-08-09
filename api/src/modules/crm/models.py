@@ -100,7 +100,6 @@ class TaskPriority(models.Model):
 
 class Organization(models.Model):
     """Организация в CRM"""
-
     VISIBILITY_CHOICES = [
         ('private', 'private'),
         ('by_invite', 'by_invite'),
@@ -183,7 +182,6 @@ class OrganizationMember(models.Model):
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.organization.name}"
 
-
 class OrganizationInvite(models.Model):
     """Приглашение в организацию"""
 
@@ -217,7 +215,6 @@ class OrganizationInvite(models.Model):
 
     def __str__(self):
         return f"{self.email} -> {self.organization.name}"
-
 # Модели для управления проектами и задачами
 
 class Project(models.Model):
