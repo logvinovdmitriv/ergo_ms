@@ -1,22 +1,11 @@
+<!-- src/modules/crm/organizations/components/OrgPageShell.vue -->
 <template>
-  <!-- общий CRM layout -->
-  <CRMParentLayout>
-    <!-- шапка раздела + табы -->
-    <CRMOrganizationsPage>
-      <!-- сюда упадет контент конкретной страницы (список/инвайты/форма/детали) -->
-      <slot />
-    </CRMOrganizationsPage>
-  </CRMParentLayout>
+  <CRMOrganizationsPage>
+    <slot />
+  </CRMOrganizationsPage>
 </template>
 
 <script>
-import CRMParentLayout from '@/modules/crm/ParentLayout.vue';
 import CRMOrganizationsPage from '../pages/CRMOrganizationsPage.vue';
-
-export default {
-  name: 'OrgPageShell',
-  components: { CRMParentLayout, CRMOrganizationsPage }
-};
+export default { name: 'OrgPageShell', components: { CRMOrganizationsPage } };
 </script>
-
-

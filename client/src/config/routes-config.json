@@ -559,7 +559,7 @@
     },
     "Organizations": {
       "path": "/crm/organizations",
-      "component": "@/modules/crm/organizations/pages/OrganizationListPage.vue",
+      "component": "@/modules/crm/ParentLayout.vue",
       "redirect": "/crm/organizations/list",
       "meta": { "title": "Организации", "requiresAuth": true }
     },
