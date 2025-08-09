@@ -1,9 +1,8 @@
 <template>
-  <!-- один .page! и общий локальный scope-класс -->
+  <!-- один .page, плюс локальный scope-класс -->
   <div class="page orgs-scope">
     <header class="page__header">
       <h1 class="page__title">CRM · Организации</h1>
-      <p class="muted">Управление организациями и участниками</p>
 
       <div class="page__actions">
         <router-link class="btn btn--primary" :to="{ name: 'OrganizationNew' }">
@@ -12,7 +11,7 @@
       </div>
     </header>
 
-    <!-- используем существующие табы темы, только добавим небольшой отступ в scss -->
+    <!-- те же табы, что и в CRM -->
     <nav class="tabs tabs--underline orgs-tabs">
       <router-link
         :to="{ name: 'OrganizationList' }"
@@ -38,5 +37,5 @@ export default { name: 'CRMOrganizationsPage' };
 </script>
 
 <style lang="scss">
-@import './orgs.scss'; /* не scoped — чтобы стили доходили до детей через .orgs-scope */
+@import './orgs.scss'; /* локальные стили раздела */
 </style>
