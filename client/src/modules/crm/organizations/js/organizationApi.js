@@ -17,7 +17,15 @@ class OrganizationApi {
   }
 
   // list
-  async getOrganizations(params = {}) { return await this.client.get('/crm/organizations/', { params }); }
+  async getOrganizations(params = {}) {
+    return await this.client.get('/crm/organizations/', { params })
+  }
+
+  async getMyOrganizations(params = {}) {
+    return await this.client.get('/crm/organizations/', {
+      params: { my: true, page_size: 1000, ...params }
+    })
+  }
   // details
   async getOrganization(id) { return await this.client.get(`/crm/organizations/${id}/`); }
   // create/update/delete
@@ -34,7 +42,9 @@ class OrganizationApi {
   async archiveOrganization(id) { return await this.client.post(`/crm/organizations/${id}/archive`); }
 
   // members & projects
-  async getOrganizationMembers(id) { return await this.client.get(`/crm/organizations/${id}/members/`); }
+  async getOrganizationMembers(id, params = {}) {
+    return await this.client.get(`/crm/organizations/${id}/members/`, { params })
+  }
   async updateOrganizationMember(orgId, userId, data) { return await this.client.patch(`/crm/organizations/${orgId}/members/${userId}/`, data); }
   async removeOrganizationMember(id, userId) {
     // если на бэке есть отдельная ручка — подставить; иначе временный эндпоинт недоступен

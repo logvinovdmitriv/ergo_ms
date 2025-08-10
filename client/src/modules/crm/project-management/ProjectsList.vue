@@ -246,6 +246,20 @@
                   </select>
                 </div>
               </div>
+              <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Организация</label>
+                  <select class="form-select"
+                          v-model="currentProject.organization_id"
+                          :disabled="loadingOrganizations">
+                    <option :value="null">—</option>
+                    <option v-if="loadingOrganizations">Загрузка...</option>
+                    <option v-else v-for="org in organizations" :key="org.id" :value="org.id">
+                      {{ org.name }}
+                    </option>
+                  </select>
+                </div>
+              </div>
               <div class="mb-4">
                 <label class="form-label fw-bold">Цвет проекта</label>
                 <div class="d-flex align-items-center gap-2">
@@ -273,6 +287,7 @@ import { Edit, Trash2 } from 'lucide-vue-next'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
+import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 
 export default {
   name: 'ProjectsList',
@@ -314,14 +329,17 @@ export default {
         end_date: '',
         status: 'planning',
         priority: 'medium',
-        color: '#007bff'
+        color: '#007bff',
+        organization_id: null
       },
       isEditing: false,
       searchTimeout: null,
       // Динамические данные для статусов и приоритетов
       projectStatuses: [],
       projectPriorities: [],
-      loadingStatuses: false
+      loadingStatuses: false,
+      organizations: [],
+      loadingOrganizations: false
     }
   },
   
@@ -428,7 +446,24 @@ export default {
         this.loadingStatuses = false
       }
     },
-    
+
+    async loadOrganizations() {
+      this.loadingOrganizations = true
+      try {
+        const res = await OrganizationApi.getMyOrganizations()
+        const data = Array.isArray(res.data?.results)
+          ? res.data.results
+          : (Array.isArray(res.data) ? res.data : [])
+        this.organizations = data
+      } catch (e) {
+        console.error('Ошибка загрузки организаций:', e)
+        alert(e?.response?.data?.detail || 'Ошибка')
+        this.organizations = []
+      } finally {
+        this.loadingOrganizations = false
+      }
+    },
+
     changePage(page) {
       if (page >= 1 && page <= this.pagination.total_pages) {
         this.pagination.current_page = page
@@ -456,14 +491,15 @@ export default {
     
     async createProject() {
       this.isEditing = false
-      
+
       // Обновляем статусы и приоритеты перед созданием проекта
       await this.refreshStatusesAndPriorities()
-      
+      await this.loadOrganizations()
+
       // Устанавливаем значения по умолчанию из загруженных данных
       const defaultStatus = this.projectStatuses.find(s => s.is_default) || this.projectStatuses[0]
       const defaultPriority = this.projectPriorities.find(p => p.is_default) || this.projectPriorities[0]
-      
+
       this.currentProject = {
         name: '',
         description: '',
@@ -471,15 +507,17 @@ export default {
         end_date: '',
         status: defaultStatus ? defaultStatus.code : 'planning',
         priority: defaultPriority ? defaultPriority.code : 'medium',
-        color: '#007bff'
+        color: '#007bff',
+        organization_id: null
       }
-      
+
       const modal = new Modal(document.getElementById('projectModal'))
       modal.show()
     },
-    
-    editProject(project) {
+
+    async editProject(project) {
       this.isEditing = true
+      await this.loadOrganizations()
       this.currentProject = {
         id: project.id,
         name: project.name,
@@ -488,9 +526,10 @@ export default {
         end_date: project.end_date,
         status: project.status,
         priority: project.priority,
-        color: project.color
+        color: project.color,
+        organization_id: project.organization?.id ?? null
       }
-      
+
       const modal = new Modal(document.getElementById('projectModal'))
       modal.show()
     },
@@ -502,7 +541,8 @@ export default {
           ...this.currentProject,
           // Конвертируем пустые строки в null для дат
           start_date: this.currentProject.start_date || null,
-          end_date: this.currentProject.end_date || null
+          end_date: this.currentProject.end_date || null,
+          organization_id: this.currentProject.organization_id ?? null
         }
         
         if (this.isEditing) {
