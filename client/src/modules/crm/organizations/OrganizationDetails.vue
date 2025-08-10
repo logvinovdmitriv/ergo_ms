@@ -6,7 +6,7 @@
         <h2 class="card__title">Общая информация</h2>
 
         <div class="toolbar">
-          <button v-if="isOwner" class="btn btn--sm btn--danger btn--ghost" @click="onDelete">
+          <button v-if="canManage" class="btn btn--sm btn--danger btn--ghost" @click="onDelete">
             Удалить организацию
           </button>
 
@@ -159,6 +159,14 @@
                 <option value="member">member</option>
                 <option value="admin">admin</option>
                 <option value="viewer">viewer</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Статус</span>
+              <select v-model="editForm.status" class="input">
+                <option value="active">active</option>
+                <option value="archived">archived</option>
               </select>
             </label>
           </div>
@@ -339,8 +347,12 @@ export default {
 
     const removeMember = async (userIdToRemove) => {
       if (!confirm('Удалить участника из организации?')) return;
-      await OrganizationApi.removeOrganizationMember(id, userIdToRemove);
-      await loadMembers();
+      try {
+        await OrganizationApi.removeOrganizationMember(id, userIdToRemove);
+        await loadMembers();
+      } catch (e) {
+        alert(e?.response?.data?.detail || 'Ошибка удаления участника');
+      }
     };
 
     const onInviteSubmit = async ({ email, role }) => {
@@ -349,6 +361,8 @@ export default {
         await OrganizationApi.inviteToOrganization(id, { email, role });
         showInvite.value = false;
         await loadMembers();
+      } catch (e) {
+        alert(e?.response?.data?.detail || 'Ошибка приглашения');
       } finally {
         inviting.value = false;
       }
@@ -356,8 +370,12 @@ export default {
 
     const onDelete = async () => {
       if (!confirm('Удалить организацию? Это действие нельзя отменить.')) return;
-      await OrganizationApi.deleteOrganization(id);
-      router.push({ name: 'OrganizationList' });
+      try {
+        await OrganizationApi.deleteOrganization(id);
+        router.push({ name: 'OrganizationList' });
+      } catch (e) {
+        alert(e?.response?.data?.detail || 'Ошибка удаления');
+      }
     };
 
     // === редактирование: старт/отмена/сохранение ===
@@ -365,7 +383,8 @@ export default {
       editForm.value = {
         visibility: 'private',
         default_role: 'member',
-        ...org.value
+        status: 'active',
+        ...org.value,
       };
       editMode.value = true;
     };
@@ -374,8 +393,15 @@ export default {
       editMode.value = false;
     };
     const sanitizePatch = (data) => {
-      const patch = { ...data };
-      Object.keys(patch).forEach(k => { if (patch[k] === '') patch[k] = null; });
+      const allowed = ['name','website','email','phone','country','timezone','address','description','industry','billing_name','billing_vat','billing_address','visibility','default_role','status'];
+      const patch = {};
+      allowed.forEach(k => {
+        const val = data[k];
+        if (val !== undefined && val !== null && val !== '' && val !== org.value[k]) {
+          patch[k] = val;
+        }
+      });
+      if (patch.default_role === 'owner') patch.default_role = 'member';
       return patch;
     };
     const saveInfo = async () => {
@@ -384,6 +410,8 @@ export default {
         await OrganizationApi.updateOrganization(id, sanitizePatch(editForm.value));
         editMode.value = false;
         await loadOrg();
+      } catch (e) {
+        alert(e?.response?.data?.detail || 'Ошибка сохранения');
       } finally {
         saving.value = false;
       }
