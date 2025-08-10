@@ -14,17 +14,18 @@
         >Статистика</router-link>
       </nav>
 
-      <OrganizationDetails />
+      <OrganizationStats :org-id="$route.params.id" />
     </div>
   </OrgPageShell>
 </template>
 
 <script>
 import OrgPageShell from '../components/OrgPageShell.vue'
-import OrganizationDetails from '../OrganizationDetails.vue'
+import OrganizationStats from '../components/OrganizationStats.vue'
 
 export default {
-  name: 'OrganizationDetailsPage',
-  components: { OrgPageShell, OrganizationDetails }
+  name: 'OrganizationStatsPage',
+  components: { OrgPageShell, OrganizationStats },
 }
 </script>
+

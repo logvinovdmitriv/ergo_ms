@@ -578,6 +578,11 @@
       "component": "@/modules/crm/organizations/pages/OrganizationsDetailsPage.vue",
       "meta": { "title": "Детали организации", "requiresAuth": true }
     },
+    "OrganizationStats": {
+      "path": "/crm/organizations/:id/stats",
+      "component": "@/modules/crm/organizations/pages/OrganizationStatsPage.vue",
+      "meta": { "title": "Статистика организации", "requiresAuth": true }
+    },
     "OrganizationInvites": {
       "path": "/crm/invites",
       "component": "@/modules/crm/organizations/pages/OrganizationsInvitesPage.vue",

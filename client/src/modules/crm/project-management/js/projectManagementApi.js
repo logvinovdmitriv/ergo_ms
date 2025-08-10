@@ -54,8 +54,8 @@ class ProjectManagementApi {
         return await this.client.delete(`/crm/projects/${id}/`);
     }
 
-    async getProjectTasks(projectId) {
-        return await this.client.get(`/crm/projects/${projectId}/tasks/`);
+    async getProjectTasks(projectId, params = {}) {
+        return await this.client.get(`/crm/projects/${projectId}/tasks/`, { params });
     }
 
     async getProjectStatistics(projectId) {
