@@ -171,7 +171,7 @@ export default {
       await load();
     }
 
-    const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_role || 'member'));
+    const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_role || '-'));
 
     const startEdit = (org) => { editingId.value = org.id; editName.value = org.name || ''; };
     const cancelEdit = () => { editingId.value = null; editName.value = ''; };
