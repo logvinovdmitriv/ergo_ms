@@ -502,6 +502,7 @@
 import { Modal } from 'bootstrap'
 import { Edit, Trash2, Plus } from 'lucide-vue-next'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
+import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
 
@@ -568,7 +569,7 @@ export default {
   
   async mounted() {
     await this.loadProjects()
-    await this.loadUsers()
+    await this.loadAllUsers()
     await this.loadStatusesAndPriorities()
     this.loadTasks()
     
@@ -587,7 +588,13 @@ export default {
       }
     }
   },
-  
+
+  watch: {
+    'currentTask.project_id'(val) {
+      this.loadUsersForProject(val)
+    }
+  },
+
   methods: {
     async loadProjects() {
       try {
@@ -600,13 +607,33 @@ export default {
       }
     },
     
-    async loadUsers() {
+    async loadAllUsers() {
       try {
         const response = await projectManagementApi.getUsers()
-        this.users = Array.isArray(response.data.results) ? response.data.results : 
-                     Array.isArray(response.data) ? response.data : []
+        this.users = Array.isArray(response.data.results) ? response.data.results :
+                     (Array.isArray(response.data) ? response.data : [])
       } catch (error) {
         console.error('Ошибка загрузки пользователей:', error)
+        this.users = []
+      }
+    },
+
+    async loadUsersForProject(projectId) {
+      try {
+        if (projectId) {
+          const proj = this.projects.find(p => p.id === projectId)
+          const orgId = proj?.organization?.id
+          if (orgId) {
+            const resp = await OrganizationApi.getOrganizationMembers(orgId)
+            const members = Array.isArray(resp.data.results) ? resp.data.results : (resp.data || [])
+            this.users = members.map(m => m.user || m).filter(u => u && u.id)
+            return
+          }
+        }
+        await this.loadAllUsers()
+      } catch (error) {
+        console.error('Ошибка загрузки пользователей:', error)
+        alert(error?.response?.data?.detail || 'Ошибка')
         this.users = []
       }
     },
@@ -768,6 +795,8 @@ export default {
         parent_id: parentTask ? parentTask.id : null
       }
 
+      await this.loadUsersForProject(this.currentTask.project_id)
+
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
     },
@@ -791,7 +820,9 @@ export default {
         estimated_hours: task.estimated_hours,
         parent_id: task.parent || null
       }
-      
+
+      await this.loadUsersForProject(this.currentTask.project_id)
+
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
     },

@@ -457,6 +457,7 @@
 import { ChevronLeft, ChevronRight, Calendar, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
 import { Modal } from 'bootstrap'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
+import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 
 export default {
@@ -591,10 +592,16 @@ export default {
       return Array.from(uniqueProjects.values())
     }
   },
-  
+
+  watch: {
+    'currentTask.project_id'(val) {
+      this.loadUsersForProject(val)
+    }
+  },
+
   async mounted() {
     await this.loadProjects()
-    await this.loadUsers()
+    await this.loadAllUsers()
     await this.loadTaskStatuses()
     await this.loadTaskPriorities()
     await this.loadProjectStatuses()
@@ -637,12 +644,32 @@ export default {
       }
     },
     
-    async loadUsers() {
+    async loadAllUsers() {
       try {
         const response = await projectManagementApi.getUsers()
-        this.users = Array.isArray(response.data) ? response.data : []
+        this.users = Array.isArray(response.data) ? response.data : (response.data?.results || [])
       } catch (error) {
         console.error('Ошибка загрузки пользователей:', error)
+        this.users = []
+      }
+    },
+
+    async loadUsersForProject(projectId) {
+      try {
+        if (projectId) {
+          const proj = this.projects.find(p => p.id === projectId)
+          const orgId = proj?.organization?.id
+          if (orgId) {
+            const resp = await OrganizationApi.getOrganizationMembers(orgId)
+            const members = Array.isArray(resp.data.results) ? resp.data.results : (resp.data || [])
+            this.users = members.map(m => m.user || m).filter(u => u && u.id)
+            return
+          }
+        }
+        await this.loadAllUsers()
+      } catch (error) {
+        console.error('Ошибка загрузки пользователей:', error)
+        alert(error?.response?.data?.detail || 'Ошибка')
         this.users = []
       }
     },
@@ -942,9 +969,10 @@ export default {
         due_date: '',
         estimated_hours: null
       }
-      
-      const modal = new Modal(document.getElementById('taskModal'))
-      modal.show()
+      this.loadUsersForProject(this.currentTask.project_id).then(() => {
+        const modal = new Modal(document.getElementById('taskModal'))
+        modal.show()
+      })
     },
     
     editTask(task) {
@@ -961,14 +989,15 @@ export default {
         due_date: task.due_date ? this.formatDateTimeLocal(task.due_date) : '',
         estimated_hours: task.estimated_hours
       }
-      
-      // Закрываем модальное окно просмотра
-      const viewModal = Modal.getInstance(document.getElementById('taskViewModal'))
-      if (viewModal) viewModal.hide()
-      
-      // Открываем модальное окно редактирования
-      const editModal = new Modal(document.getElementById('taskModal'))
-      editModal.show()
+      this.loadUsersForProject(this.currentTask.project_id).then(() => {
+        // Закрываем модальное окно просмотра
+        const viewModal = Modal.getInstance(document.getElementById('taskViewModal'))
+        if (viewModal) viewModal.hide()
+
+        // Открываем модальное окно редактирования
+        const editModal = new Modal(document.getElementById('taskModal'))
+        editModal.show()
+      })
     },
     
     viewTask(taskEvent) {

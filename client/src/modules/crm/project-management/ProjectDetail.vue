@@ -610,6 +610,7 @@
 import { Modal } from 'bootstrap'
 import { Edit, Trash2, Plus, Home, Info, PieChart, ListTodo, Calendar, Clock, Users, CheckCircle, AlertTriangle, UserPlus, UserMinus, GitBranch } from 'lucide-vue-next'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
+import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
 import ProjectTasksTree from './ProjectTasksTree.vue'
@@ -681,11 +682,8 @@ export default {
     }
   },
   async mounted() {
-    await Promise.all([
-      this.loadUsers(),
-      this.loadStatusesAndPriorities()
-    ])
-    this.loadProjectData()
+    await this.loadStatusesAndPriorities()
+    await this.loadProjectData()
   },
   computed: {
     availableUsers() {
@@ -830,6 +828,9 @@ export default {
   watch: {
     '$route'() {
       this.loadProjectData()
+    },
+    'project.organization.id'() {
+      this.loadUsers()
     }
   },
   methods: {
@@ -850,6 +851,7 @@ export default {
         // Загружаем данные проекта
         const response = await projectManagementApi.getProject(projectId)
         this.project = response.data
+        await this.loadUsers()
 
         // Загружаем задачи проекта
         const tasksResponse = await projectManagementApi.getProjectTasks(projectId)
@@ -867,12 +869,16 @@ export default {
 
     async loadUsers() {
       try {
-        const response = await projectManagementApi.getUsers()
-        const users = Array.isArray(response.data.results) ? response.data.results : 
-                      Array.isArray(response.data) ? response.data : []
-        
-        // Фильтруем только валидных пользователей
-        this.users = users.filter(user => user && user.id)
+        if (this.project?.organization?.id) {
+          const resp = await OrganizationApi.getOrganizationMembers(this.project.organization.id)
+          const members = Array.isArray(resp.data.results) ? resp.data.results : (resp.data || [])
+          this.users = members.map(m => m.user || m).filter(u => u && u.id)
+        } else {
+          const response = await projectManagementApi.getUsers()
+          const users = Array.isArray(response.data.results) ? response.data.results :
+                        (Array.isArray(response.data) ? response.data : [])
+          this.users = users.filter(user => user && user.id)
+        }
       } catch (error) {
         console.error('Ошибка загрузки пользователей:', error)
         this.users = []
