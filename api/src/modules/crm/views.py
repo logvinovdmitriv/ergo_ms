@@ -10,6 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from datetime import datetime, timedelta
 from django.contrib.auth import get_user_model
 from src.core.utils.mixins import SwaggerSafeMixin
+from django.db.models import Subquery
 
 from .models import (
     Project, ProjectMember, Task, TaskComment, TaskAttachment, TimeLog,
@@ -24,6 +25,16 @@ from .serializers import (
     OrganizationSerializer, OrganizationMemberSerializer, OrganizationInviteSerializer,
     BulkUpdateTaskSerializer, BulkUpdateProjectSerializer
 )
+
+def lock_base_queryset(qs, model):
+    """
+    Вернёт queryset базовой модели без DISTINCT/JOIN — годный для select_for_update().
+    qs — отфильтрованный, с правами и прочим.
+    model — self.get_serializer().Meta.model или конкретная модель.
+    """
+    # Берём только id из исходного qs (там может быть distinct/join — это ок),
+    # а лочим уже базовую таблицу по IN (SELECT ...).
+    return model.objects.filter(pk__in=Subquery(qs.values('pk')))
 
 User = get_user_model()
 
@@ -528,34 +539,32 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             qs.delete()
         return Response({'deleted': len(deleted_ids), 'ids': deleted_ids})
 
+   # внутри ProjectViewSet
     @action(detail=False, methods=['patch'], url_path='bulk-update')
     def bulk_update(self, request, *args, **kwargs):
-        serializer = BulkUpdateProjectSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        ids = data.pop('ids')
-        if len(ids) > MAX_BULK:
-            return Response({'detail': f'Max {MAX_BULK} ids per request'}, status=status.HTTP_400_BAD_REQUEST)
-        qs = self.filter_queryset(self.get_queryset()).filter(id__in=ids)
-        manager = None
-        manager_present = False
-        if 'manager_id' in data:
-            manager_present = True
-            manager_id = data.pop('manager_id')
-            if manager_id is not None:
-                manager = User.objects.filter(pk=manager_id).first()
-                if manager is None:
-                    return Response({'detail': 'manager not found'}, status=status.HTTP_400_BAD_REQUEST)
+        ids = request.data.get('ids') or []
+        if not ids:
+            return Response({'detail': 'ids is required'}, status=400)
+
+        data = request.data.copy()
+        data.pop('ids', None)
+
+        # исходный qs c правами/фильтрами — здесь могут быть join/distinct
+        base_qs_with_filters = self.filter_queryset(self.get_queryset()).filter(id__in=ids)
+
+        Model = self.get_serializer().Meta.model  # Project модель из сериализатора
+        # строим безопасный для lock qs
+        lockable_qs = lock_base_queryset(base_qs_with_filters, Model)
+
+        updated = 0
         with transaction.atomic():
-            updated_ids = []
-            for obj in qs.select_for_update():
-                for field, value in data.items():
-                    setattr(obj, field, value)
-                if manager_present:
-                    obj.manager = manager
-                obj.save()
-                updated_ids.append(obj.id)
-        return Response({'updated': len(updated_ids), 'ids': updated_ids})
+            for obj in lockable_qs.select_for_update():
+                serializer = self.get_serializer(obj, data=data, partial=True)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                updated += 1
+
+        return Response({'updated': updated})
 
 
 class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
@@ -640,43 +649,27 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=['patch'], url_path='bulk-update')
     def bulk_update(self, request, *args, **kwargs):
-        serializer = BulkUpdateTaskSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-        ids = data.pop('ids')
-        if len(ids) > MAX_BULK:
-            return Response({'detail': f'Max {MAX_BULK} ids per request'}, status=status.HTTP_400_BAD_REQUEST)
-        qs = self.filter_queryset(self.get_queryset()).filter(id__in=ids)
-        assignee = None
-        assignee_present = False
-        if 'assignee_id' in data:
-            assignee_present = True
-            assignee_id = data.pop('assignee_id')
-            if assignee_id is not None:
-                assignee = User.objects.filter(pk=assignee_id).first()
-                if assignee is None:
-                    return Response({'detail': 'assignee not found'}, status=status.HTTP_400_BAD_REQUEST)
-        project = None
-        project_present = False
-        if 'project_id' in data:
-            project_present = True
-            project_id = data.pop('project_id')
-            if project_id is not None:
-                project = Project.objects.filter(pk=project_id).first()
-                if project is None:
-                    return Response({'detail': 'project not found'}, status=status.HTTP_400_BAD_REQUEST)
+        ids = request.data.get('ids') or []
+        if not ids:
+            return Response({'detail': 'ids is required'}, status=400)
+
+        data = request.data.copy()
+        data.pop('ids', None)
+
+        filtered_qs = self.filter_queryset(self.get_queryset()).filter(id__in=ids)
+        Model = self.get_serializer().Meta.model  # Task
+        lockable_qs = lock_base_queryset(filtered_qs, Model)
+
+        updated = 0
         with transaction.atomic():
-            updated_ids = []
-            for obj in qs.select_for_update():
-                for field, value in data.items():
-                    setattr(obj, field, value)
-                if assignee_present:
-                    obj.assignee = assignee
-                if project_present:
-                    obj.project = project
-                obj.save()
-                updated_ids.append(obj.id)
-        return Response({'updated': len(updated_ids), 'ids': updated_ids})
+            for obj in lockable_qs.select_for_update():
+                serializer = self.get_serializer(obj, data=data, partial=True)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                updated += 1
+
+        return Response({'updated': updated})
+
 
     @action(detail=False, methods=['get'])
     def calendar(self, request):
