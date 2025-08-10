@@ -102,11 +102,13 @@ class TaskPriority(models.Model):
 class Organization(models.Model):
     """Организация в CRM"""
     VISIBILITY_CHOICES = [
+        ('public', 'public'),
+        ('internal', 'internal'),
         ('private', 'private'),
-        ('by_invite', 'by_invite'),
     ]
     ROLE_CHOICES = [
         ('member', 'member'),
+        ('admin', 'admin'),
         ('viewer', 'viewer'),
     ]
     STATUS_CHOICES = [
@@ -117,7 +119,7 @@ class Organization(models.Model):
     name = models.CharField(max_length=255, verbose_name='Название организации')
     slug = models.SlugField(unique=True, blank=True, verbose_name='Слаг')
     description = models.TextField(blank=True, verbose_name='Описание')
-    logo_url = models.URLField(blank=True, verbose_name='Логотип')
+    logo_url = models.URLField(default='', blank=True, verbose_name='Логотип')
     industry = models.CharField(max_length=255, blank=True, verbose_name='Отрасль')
     website = models.URLField(blank=True, verbose_name='Сайт')
     email = models.EmailField(blank=True, verbose_name='Email')
@@ -130,7 +132,7 @@ class Organization(models.Model):
     billing_address = models.CharField(max_length=255, blank=True, verbose_name='Адрес для счетов')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_organizations', verbose_name='Владелец')
     members = models.ManyToManyField(User, through='OrganizationMember', related_name='organizations', through_fields=('organization', 'user'), verbose_name='Участники')
-    visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='by_invite', verbose_name='Видимость')
+    visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='private', verbose_name='Видимость')
     default_role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member', verbose_name='Роль по умолчанию')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Статус')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')

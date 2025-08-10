@@ -39,11 +39,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Публичные или те, где пользователь владелец/админ
+        # Публичные или те, где пользователь владелец/админ (статус accepted)
         return Organization.objects.filter(
             Q(visibility='public') |
             Q(owner=user) |
-            Q(memberships__user=user, memberships__role__in=['owner', 'admin', 'member', 'viewer'], memberships__status='accepted')
+            Q(memberships__user=user, memberships__role__in=['owner', 'admin'], memberships__status='accepted')
         ).distinct()
 
     def perform_create(self, serializer):
@@ -116,7 +116,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     def members(self, request, pk=None):
         """Список участников организации"""
         organization = self.get_object()
-        if not (organization.owner == request.user or OrganizationMember.objects.filter(organization=organization, user=request.user, role__in=['owner', 'admin'], status='accepted').exists()):
+        if not self._is_owner_or_admin(organization, request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = OrganizationMemberSerializer(organization.memberships.all(), many=True)
         return Response(serializer.data)
@@ -125,7 +125,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     def manage_member(self, request, pk=None, user_id=None):
         """Изменение роли или удаление участника"""
         organization = self.get_object()
-        if not (organization.owner == request.user or OrganizationMember.objects.filter(organization=organization, user=request.user, role__in=['owner', 'admin'], status='accepted').exists()):
+        if not self._is_owner_or_admin(organization, request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
         try:
             member = OrganizationMember.objects.get(organization=organization, user_id=user_id)
