@@ -132,6 +132,50 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response({'error': 'cannot remove owner'}, status=status.HTTP_400_BAD_REQUEST)
         member.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    @action(detail=True, methods=['post'])
+    def leave(self, request, pk=None):
+        """Покинуть организацию (владельцу запрещено без передачи)."""
+        org = self.get_object()
+        user = request.user
+        if getattr(org, 'owner_id', None) == user.id:
+            return Response({'detail': 'Вы владелец организации. Сначала передайте владение.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        OrganizationMember.objects.filter(organization=org, user=user).delete()
+        return Response({'status': 'ok'})
+
+    @action(detail=True, methods=['post'], url_path='transfer-ownership')
+    def transfer_ownership(self, request, pk=None):
+        """Передать владение (только текущий владелец)."""
+        org = self.get_object()
+        user = request.user
+        if getattr(org, 'owner_id', None) != user.id:
+            return Response({'detail': 'Только владелец может передать владение.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        new_owner_id = request.data.get('new_owner_id')
+        if not new_owner_id:
+            return Response({'detail': 'Не указан new_owner_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        User = get_user_model()
+        try:
+            new_owner = User.objects.get(id=new_owner_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            OrganizationMember.objects.get(organization=org, user=new_owner, status='accepted')
+        except OrganizationMember.DoesNotExist:
+            return Response({'detail': 'Пользователь должен быть участником организации со статусом accepted.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            org.owner = new_owner
+            org.save(update_fields=['owner'])
+            OrganizationMember.objects.update_or_create(
+                organization=org, user=new_owner,
+                defaults={'role': 'owner', 'status': 'accepted'}
+            )
+        return Response({'status': 'ok', 'owner_id': new_owner.id})
 
 
 class OrganizationInviteViewSet(viewsets.ViewSet):

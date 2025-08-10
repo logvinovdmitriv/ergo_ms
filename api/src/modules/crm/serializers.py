@@ -66,10 +66,31 @@ class OrganizationMemberSerializer(serializers.ModelSerializer):
         read_only_fields = ['invited_by', 'invited_at', 'responded_at']
 
 class OrganizationSerializer(serializers.ModelSerializer):
+    # READ
     owner = CRMUserSerializer(read_only=True)
     memberships = OrganizationMemberSerializer(many=True, read_only=True)
     my_role = serializers.SerializerMethodField(read_only=True)
     members_count = serializers.SerializerMethodField(read_only=True)
+
+    # WRITE
+    owner_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+
+    # «Мягкие» поля — разрешаем пустые, но logo_url ниже преобразуем к '', чтобы не было NULL
+    logo_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    website = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    country = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    timezone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    industry = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    billing_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    billing_vat = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    billing_address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    visibility = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    default_role = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Organization
@@ -77,14 +98,16 @@ class OrganizationSerializer(serializers.ModelSerializer):
             'id', 'name', 'slug', 'description', 'logo_url', 'industry', 'website',
             'email', 'phone', 'country', 'timezone', 'address',
             'billing_name', 'billing_vat', 'billing_address',
-            'owner', 'memberships', 'my_role', 'members_count',
+            'owner', 'owner_id', 'memberships', 'my_role', 'members_count',
             'visibility', 'default_role', 'status',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['slug', 'owner', 'created_at', 'updated_at']
+        read_only_fields = ['slug', 'created_at', 'updated_at']
 
+    # ----- computed -----
     def get_my_role(self, obj):
-        user = self.context['request'].user if 'request' in self.context else None
+        req = self.context.get('request')
+        user = getattr(req, 'user', None)
         if not user or not user.is_authenticated:
             return None
         if obj.owner_id == user.id:
@@ -95,6 +118,71 @@ class OrganizationSerializer(serializers.ModelSerializer):
     def get_members_count(self, obj):
         return obj.memberships.count()
 
+    # ----- validators -----
+    def validate_default_role(self, value):
+        # пустое — не трогаем поле
+        if value in (None, ''):
+            return None
+        # если прилетел "owner" — тихо переводим в member
+        if value == 'owner':
+            return 'member'
+        allowed = {'member', 'admin', 'viewer'}
+        if value not in allowed:
+            # можно тоже схлопнуть в member, но оставлю явную ошибку:
+            raise serializers.ValidationError(
+                'Недопустимое значение. Разрешено: member, admin, viewer.'
+            )
+        return value
+
+
+    # ----- helpers -----
+    @staticmethod
+    def _normalize_soft_fields(data: dict) -> dict:
+        """
+        Не допускаем NULL там, где в БД NOT NULL. Превращаем None -> '' для logo_url (и опционально для других).
+        """
+        if 'logo_url' in data and data['logo_url'] is None:
+            data['logo_url'] = ''  # чтобы не ловить IntegrityError на NOT NULL
+        return data
+
+    # ----- update / transfer owner -----
+    def update(self, instance, validated_data):
+        # перенос владельца
+        new_owner_id = validated_data.pop('owner_id', None)
+        req = self.context.get('request')
+        if new_owner_id is not None and new_owner_id != instance.owner_id:
+            if not req or not (req.user.is_superuser or req.user.id == instance.owner_id):
+                raise serializers.ValidationError({'owner_id': 'Только владелец или суперпользователь могут менять владельца.'})
+            try:
+                new_owner = User.objects.get(pk=new_owner_id)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({'owner_id': 'Пользователь не найден.'})
+            instance.owner = new_owner
+            instance.save(update_fields=['owner'])
+            OrganizationMember.objects.update_or_create(
+                organization=instance, user=new_owner,
+                defaults={'role': 'owner', 'status': 'accepted'}
+            )
+
+        validated_data = self._normalize_soft_fields(validated_data)
+        return super().update(instance, validated_data)
+
+    def create(self, validated_data):
+        owner_id = validated_data.pop('owner_id', None)
+        validated_data = self._normalize_soft_fields(validated_data)
+        obj = super().create(validated_data)
+        if owner_id:
+            try:
+                owner = User.objects.get(pk=owner_id)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({'owner_id': 'Пользователь не найден.'})
+            obj.owner = owner
+            obj.save(update_fields=['owner'])
+            OrganizationMember.objects.update_or_create(
+                organization=obj, user=owner,
+                defaults={'role': 'owner', 'status': 'accepted'}
+            )
+        return obj
 
 
 class OrganizationInviteSerializer(serializers.ModelSerializer):

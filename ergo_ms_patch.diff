@@ -1,0 +1,342 @@
+*** Begin Patch
+*** Update File: client/src/modules/crm/organizations/components/OrganizationInviteModal.vue
+@@
+-<template>
+-  <div class="modal-backdrop" @click.self="$emit('close')">
+-    <div class="modal-card">
+-      <!-- existing content -->
+-      <slot />
+-    </div>
+-  </div>
+-</template>
++<template>
++  <!-- Render in body to avoid stacking context issues -->
++  <teleport to="body">
++    <div class="modal-backdrop" @click.self="$emit('close')">
++      <div class="modal-card">
++        <slot />
++      </div>
++    </div>
++  </teleport>
++</template>
+ <script>
+ export default {
+   name: 'OrganizationInviteModal',
+ };
+ </script>
+ <style scoped>
+-.modal-backdrop {
+-  position: fixed;
+-  inset: 0;
+-  background: rgba(0,0,0,.35);
+-  display: flex;
+-  align-items: center;
+-  justify-content: center;
+-  z-index: 1000;
+-}
++.modal-backdrop {
++  position: fixed;
++  inset: 0;
++  background: rgba(0,0,0,.45);
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  z-index: 2000; /* bump to sit above any local stacking contexts */
++}
+ .modal-card {
+   width: min(640px, 96vw);
+   max-height: 90vh;
+   overflow: auto;
+   background: #fff;
+*** End Patch
+*** Begin Patch
+*** Update File: client/src/modules/crm/organizations/OrganizationDetails.vue
+@@
+ <template>
+   <div class="org-details">
+     <!-- header etc. -->
+     <div class="actions">
+-      <button class="btn" @click="showInvite = true">Пригласить</button>
++      <button class="btn" @click="showInvite = true">Пригласить</button>
++      <button v-if="isMemberAccepted" class="btn btn-danger" @click="onLeave" :disabled="leaving">
++        <span v-if="!leaving">Выйти из организации</span>
++        <span v-else>Выходим…</span>
++      </button>
+     </div>
+ 
+     <!-- ... existing details content ... -->
+ 
++    <!-- Настройки организации (доступно владельцу/админам) -->
++    <section v-if="canEditOrg" class="org-settings">
++      <h3>Настройки организации</h3>
++      <OrganizationEditFields
++        :initial="organization"
++        @save="onOrgSave"
++        @cancel="() => {}"
++      />
++    </section>
++
+     <OrganizationInviteModal v-if="showInvite" @close="showInvite = false" />
++    <TransferOwnershipModal
++      v-if="showTransfer"
++      :members="transferCandidates"
++      @close="showTransfer = false"
++      @submit="onTransferSubmit"
++    />
+   </div>
+ </template>
+ 
+ <script>
+-import OrganizationInviteModal from './components/OrganizationInviteModal.vue';
++import OrganizationInviteModal from './components/OrganizationInviteModal.vue';
++import TransferOwnershipModal from './components/TransferOwnershipModal.vue';
++import OrganizationEditFields from './components/OrganizationEditFields.vue';
++import organizationApi from './js/organizationApi';
+ 
+ export default {
+   name: 'OrganizationDetails',
+-  components: { OrganizationInviteModal },
++  components: { OrganizationInviteModal, TransferOwnershipModal, OrganizationEditFields },
+   props: {
+     organization: { type: Object, required: true },
+     me: { type: Object, required: true },
+     members: { type: Array, default: () => [] }
+   },
+   data() {
+     return {
+       showInvite: false,
++      showTransfer: false,
++      leaving: false,
++      transferring: false,
+     };
+   },
+   computed: {
++    isOwner() {
++      return this.organization?.owner_id === this.me?.id || this.me?.role === 'owner';
++    },
++    isMemberAccepted() {
++      const m = this.members.find(m => m.user_id === this.me?.id);
++      return !!m && m.status === 'accepted';
++    },
++    canEditOrg() {
++      return this.isOwner || this.me?.role === 'admin';
++    },
++    transferCandidates() {
++      return this.members
++        .filter(m => m.status === 'accepted' && m.user_id !== this.me?.id)
++        .map(m => ({ id: m.user_id, name: m.user_name || m.email }));
++    }
+   },
+   methods: {
++    async onLeave() {
++      if (this.isOwner) {
++        this.showTransfer = true;
++        return;
++      }
++      this.leaving = true;
++      try {
++        await organizationApi.leaveOrganization(this.organization.id);
++        this.$emit('left'); // parent can redirect to list
++      } catch (e) {
++        console.error(e);
++        this.$emit('error', e?.response?.data || e);
++      } finally {
++        this.leaving = false;
++      }
++    },
++    async onTransferSubmit(newOwnerId) {
++      this.transferring = true;
++      try {
++        await organizationApi.transferOwnership(this.organization.id, newOwnerId);
++        // после передачи — выходим
++        await organizationApi.leaveOrganization(this.organization.id);
++        this.$emit('left');
++      } catch (e) {
++        console.error(e);
++        this.$emit('error', e?.response?.data || e);
++      } finally {
++        this.transferring = false;
++        this.showTransfer = false;
++      }
++    },
++    async onOrgSave(patch) {
++      try {
++        await this.$axios.patch(`/crm/organizations/${this.organization.id}/`, patch);
++        this.$emit('refresh'); // попросим родителя перечитать данные
++      } catch (e) {
++        console.error(e);
++        this.$emit('error', e?.response?.data || e);
++      }
++    }
+   }
+ };
+ </script>
+ 
+ <style scoped>
+ .actions { display:flex; gap:.5rem; margin-bottom:1rem; }
+ .btn { padding:.5rem .75rem; border-radius:6px; background:#f3f4f6; }
++.btn-danger { background:#fee2e2; }
+ .org-settings { margin-top: 1rem; padding: 1rem; border: 1px solid #eee; border-radius: 8px; }
+ </style>
+*** End Patch
+*** Begin Patch
+*** Add File: client/src/modules/crm/organizations/components/OrganizationEditFields.vue
++<template>
++  <form @submit.prevent="submit">
++    <div class="grid">
++      <label>
++        <span>Название</span>
++        <input v-model="form.name" required />
++      </label>
++      <label>
++        <span>Slug</span>
++        <input v-model="form.slug" />
++      </label>
++      <label class="col-span-2">
++        <span>Описание</span>
++        <textarea v-model="form.description" rows="3" />
++      </label>
++      <label>
++        <span>Видимость</span>
++        <select v-model="form.visibility">
++          <option value="private">Private</option>
++          <option value="internal">Internal</option>
++          <option value="public">Public</option>
++        </select>
++      </label>
++      <label>
++        <span>Макс. проектов</span>
++        <input type="number" min="0" v-model.number="form.max_projects" />
++      </label>
++      <label>
++        <span>Billing name</span>
++        <input v-model="form.billing_name" />
++      </label>
++      <label>
++        <span>Billing email</span>
++        <input type="email" v-model="form.billing_email" />
++      </label>
++    </div>
++    <div class="actions">
++      <button type="button" class="btn" @click="$emit('cancel')">Отмена</button>
++      <button type="submit" class="btn btn-primary">Сохранить</button>
++    </div>
++  </form>
++
++</template>
++
++<script>
++export default {
++  name: 'OrganizationEditFields',
++  props: { initial: { type: Object, required: true } },
++  data() {
++    return {
++      form: {
++        name: this.initial?.name || '',
++        slug: this.initial?.slug || '',
++        description: this.initial?.description || '',
++        visibility: this.initial?.visibility || 'private',
++        max_projects: this.initial?.max_projects ?? null,
++        billing_name: this.initial?.billing_name || '',
++        billing_email: this.initial?.billing_email || '',
++      }
++    };
++  },
++  watch: {
++    initial: {
++      deep: true,
++      handler(v) {
++        this.form = { ...this.form, ...v };
++      }
++    }
++  },
++  methods: {
++    submit() {
++      const patch = { ...this.form };
++      Object.keys(patch).forEach(k => patch[k] === '' && (patch[k] = null));
++      this.$emit('save', patch);
++    }
++  }
++};
++</script>
++
++<style scoped>
++.grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .75rem; }
++.col-span-2 { grid-column: span 2 / span 2; }
++label span { display:block; font-size:.85rem; color:#6b7280; margin-bottom:.25rem; }
++input, textarea, select { width:100%; border:1px solid #e5e7eb; border-radius:6px; padding:.5rem .6rem; }
++.actions { display:flex; justify-content:flex-end; gap:.5rem; margin-top:.75rem; }
++.btn { padding:.5rem .75rem; border-radius:6px; background:#f3f4f6; }
++.btn-primary { background:#2563eb; color:white; }
++</style>
+*** End Patch
+*** Begin Patch
+*** Update File: client/src/modules/crm/organizations/js/organizationApi.js
+@@
+ export default {
+   client: null, // set by plugin/bootstrap
+   init(client) { this.client = client; },
++  async leaveOrganization(id) {
++    return this.client.post(`/crm/organizations/${id}/leave/`);
++  },
++  async transferOwnership(id, new_owner_id) {
++    return this.client.post(`/crm/organizations/${id}/transfer-ownership/`, { new_owner_id });
++  },
+ };
+*** End Patch
+*** Begin Patch
+*** Update File: api/src/modules/crm/views.py
+@@
+ from rest_framework import status
+ from rest_framework.decorators import action
+ from rest_framework.response import Response
+@@
+ class OrganizationViewSet(ModelViewSet):
+     queryset = Organization.objects.all()
+     serializer_class = OrganizationSerializer
+@@
++    @action(detail=True, methods=['post'])
++    def leave(self, request, pk=None):
++        """Покинуть организацию (владельцу запрещено без передачи)."""
++        org = self.get_object()
++        user = request.user
++        if getattr(org, 'owner_id', None) == user.id:
++            return Response({'detail': 'Вы владелец организации. Сначала передайте владение.'},
++                            status=status.HTTP_400_BAD_REQUEST)
++        OrganizationMember.objects.filter(organization=org, user=user).delete()
++        return Response({'status': 'ok'})
++
++    @action(detail=True, methods=['post'], url_path='transfer-ownership')
++    def transfer_ownership(self, request, pk=None):
++        """Передать владение (только текущий владелец)."""
++        org = self.get_object()
++        user = request.user
++        if getattr(org, 'owner_id', None) != user.id:
++            return Response({'detail': 'Только владелец может передать владение.'},
++                            status=status.HTTP_403_FORBIDDEN)
++
++        new_owner_id = request.data.get('new_owner_id')
++        if not new_owner_id:
++            return Response({'detail': 'Не указан new_owner_id'}, status=status.HTTP_400_BAD_REQUEST)
++
++        User = get_user_model()
++        try:
++            new_owner = User.objects.get(id=new_owner_id)
++        except User.DoesNotExist:
++            return Response({'detail': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
++
++        try:
++            OrganizationMember.objects.get(organization=org, user=new_owner, status='accepted')
++        except OrganizationMember.DoesNotExist:
++            return Response({'detail': 'Пользователь должен быть участником организации со статусом accepted.'},
++                            status=status.HTTP_400_BAD_REQUEST)
++
++        with transaction.atomic():
++            org.owner = new_owner
++            org.save(update_fields=['owner'])
++            OrganizationMember.objects.update_or_create(
++                organization=org, user=new_owner,
++                defaults={'role': 'owner', 'status': 'accepted'}
++            )
++        return Response({'status': 'ok', 'owner_id': new_owner.id})
+*** End Patch

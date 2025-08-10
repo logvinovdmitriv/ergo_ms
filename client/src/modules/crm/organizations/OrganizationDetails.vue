@@ -9,6 +9,24 @@
           <button v-if="isOwner" class="btn btn--sm btn--danger btn--ghost" @click="onDelete">
             Удалить организацию
           </button>
+
+          <!-- Редактирование общей информации -->
+          <button
+            v-if="canInvite && !editMode"
+            class="btn btn--sm btn--secondary"
+            @click="startEdit"
+          >
+            Изменить
+          </button>
+          <div v-if="editMode" class="toolbar__edit">
+            <button class="btn btn--sm btn--primary" :disabled="saving" @click="saveInfo">
+              {{ saving ? 'Сохраняем…' : 'Сохранить' }}
+            </button>
+            <button class="btn btn--sm btn--ghost" :disabled="saving" @click="cancelEdit">
+              Отмена
+            </button>
+          </div>
+
           <button v-if="canInvite" class="btn btn--sm btn--primary" @click="showInvite = true">
             Пригласить
           </button>
@@ -24,9 +42,15 @@
               <div class="avatar" v-if="org.logo_url"><img :src="org.logo_url" alt="" /></div>
               <div class="avatar avatar--placeholder" v-else>{{ (org.name || 'Организация')[0] }}</div>
 
-              <div>
-                <div class="title">{{ org.name || 'Без названия' }}</div>
-                <div class="muted" v-if="org.slug">@{{ org.slug }}</div>
+              <div class="name-stack">
+                <template v-if="!editMode">
+                  <div class="title">{{ org.name || 'Без названия' }}</div>
+                  <div class="muted" v-if="org.slug">@{{ org.slug }}</div>
+                </template>
+                <template v-else>
+                  <input v-model="editForm.name" class="input input--md" placeholder="Название" />
+                  <input v-model="editForm.slug" class="input input--sm" placeholder="slug" />
+                </template>
               </div>
             </div>
 
@@ -39,7 +63,8 @@
             </div>
           </div>
 
-          <dl class="dl dl--grid">
+          <!-- VIEW MODE -->
+          <dl v-if="!editMode" class="dl dl--grid">
             <div><dt>Сайт</dt><dd>
               <template v-if="org.website">
                 <a :href="org.website" target="_blank" rel="noopener">{{ org.website }}</a>
@@ -57,7 +82,86 @@
             <div><dt>Плательщик</dt><dd>{{ org.billing_name || 'не указано' }}</dd></div>
             <div><dt>VAT</dt><dd>{{ org.billing_vat || 'не указано' }}</dd></div>
             <div class="col-2"><dt>Адрес для счетов</dt><dd>{{ org.billing_address || 'не указано' }}</dd></div>
+
+            <div><dt>Видимость</dt><dd>{{ org.visibility || 'private' }}</dd></div>
+            <div class="col-2"><dt>Роль приглашённых по умолчанию</dt><dd>{{ org.default_role || 'member' }}</dd></div>
           </dl>
+
+          <!-- EDIT MODE -->
+          <div v-else class="form-grid">
+            <label>
+              <span>Сайт</span>
+              <input v-model="editForm.website" class="input" placeholder="https://…" />
+            </label>
+
+            <label>
+              <span>Email</span>
+              <input v-model="editForm.email" class="input" placeholder="name@domain" />
+            </label>
+
+            <label>
+              <span>Телефон</span>
+              <input v-model="editForm.phone" class="input" />
+            </label>
+
+            <label>
+              <span>Страна</span>
+              <input v-model="editForm.country" class="input" />
+            </label>
+
+            <label>
+              <span>Часовой пояс</span>
+              <input v-model="editForm.timezone" class="input" placeholder="Europe/Moscow" />
+            </label>
+
+            <label class="col-span-2">
+              <span>Адрес</span>
+              <input v-model="editForm.address" class="input" />
+            </label>
+
+            <label class="col-span-2">
+              <span>Описание</span>
+              <textarea v-model="editForm.description" class="input textarea" rows="4"></textarea>
+            </label>
+
+            <label class="col-span-2">
+              <span>Отрасль</span>
+              <input v-model="editForm.industry" class="input" />
+            </label>
+
+            <label>
+              <span>Плательщик</span>
+              <input v-model="editForm.billing_name" class="input" />
+            </label>
+
+            <label>
+              <span>VAT</span>
+              <input v-model="editForm.billing_vat" class="input" />
+            </label>
+
+            <label class="col-span-2">
+              <span>Адрес для счетов</span>
+              <input v-model="editForm.billing_address" class="input" />
+            </label>
+
+            <label>
+              <span>Видимость</span>
+              <select v-model="editForm.visibility" class="input">
+                <option value="private">private</option>
+                <option value="internal">internal</option>
+                <option value="public">public</option>
+              </select>
+            </label>
+
+            <label class="col-span-2">
+              <span>Роль приглашённых по умолчанию</span>
+              <select v-model="editForm.default_role" class="input">
+                <option value="member">member</option>
+                <option value="admin">admin</option>
+                <option value="viewer">viewer</option>
+              </select>
+            </label>
+          </div>
         </div>
       </div>
     </section>
@@ -156,7 +260,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import OrganizationApi from './js/organizationApi.js';
@@ -169,7 +273,6 @@ export default {
     const store = useStore();
     const route = useRoute();
     const router = useRouter();
-    const userId = store.state?.auth?.user?.id;
     const id = Number(route.params.id);
 
     const org = ref({});
@@ -182,6 +285,11 @@ export default {
 
     const showInvite = ref(false);
     const inviting = ref(false);
+
+    // === Редактирование общей информации ===
+    const editMode = ref(false);
+    const saving = ref(false);
+    const editForm = ref({});
 
     const loadOrg = async () => {
       loadingOrg.value = true;
@@ -207,10 +315,25 @@ export default {
       } finally { loadingProjects.value = false; }
     };
 
-    const isOwner = computed(() => org.value?.owner && org.value.owner.id === userId);
-    const myRole  = (o) => (o?.owner?.id === userId ? 'owner' : (o?.my_role || 'member'));
-    const canInvite = computed(() => isOwner.value || members.value.some(m => m.user?.id === userId && (m.role === 'admin' || m.role === 'owner')));
+    // ====== ПРАВА (как в списке) ======
+    const toStr = v => (v == null ? null : String(v));
+    const uid = computed(() => toStr(store.state?.auth?.user?.id));
+    const ownerIdFromOrg = computed(() => toStr(org.value?.owner?.id ?? org.value?.owner_id));
+
+    const isOwner = computed(() =>
+      org.value?.my_role === 'owner' || (uid.value && ownerIdFromOrg.value === uid.value)
+    );
+
+    const myMember = computed(() => members.value.find(m => toStr(m.user?.id) === uid.value));
+    const isAdminFromMembers = computed(() => ['admin', 'owner'].includes(myMember.value?.role));
+    const isAdmin = computed(() => org.value?.my_role === 'admin' || isAdminFromMembers.value);
+
+    const canInvite = computed(() => isOwner.value || isAdmin.value);
     const canManage = canInvite;
+
+    const myRole = (o) =>
+      (o?.my_role) ||
+      (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
 
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
 
@@ -237,16 +360,61 @@ export default {
       router.push({ name: 'OrganizationList' });
     };
 
+    // === редактирование: старт/отмена/сохранение ===
+    const startEdit = () => {
+      editForm.value = {
+        visibility: 'private',
+        default_role: 'member',
+        ...org.value
+      };
+      editMode.value = true;
+    };
+    const cancelEdit = () => {
+      editForm.value = { ...org.value };
+      editMode.value = false;
+    };
+    const sanitizePatch = (data) => {
+      const patch = { ...data };
+      Object.keys(patch).forEach(k => { if (patch[k] === '') patch[k] = null; });
+      return patch;
+    };
+    const saveInfo = async () => {
+      saving.value = true;
+      try {
+        await OrganizationApi.updateOrganization(id, sanitizePatch(editForm.value));
+        editMode.value = false;
+        await loadOrg();
+      } finally {
+        saving.value = false;
+      }
+    };
+
+    // синхронизация формы, если org обновился вне редактирования
+    watch(org, (val) => {
+      if (!editMode.value) editForm.value = { ...val };
+    }, { deep: true });
+
     onMounted(async () => {
       await Promise.all([loadOrg(), loadMembers(), loadProjects()]);
+      editForm.value = { ...org.value };
     });
 
     return {
       org, members, projects,
       loadingOrg, loadingMembers, loadingProjects,
       showInvite, inviting, onInviteSubmit,
-      myRole, canInvite, canManage, initials, removeMember,
-      isOwner: isOwner.value, onDelete
+
+      // права
+      myRole, canInvite, canManage, isOwner,
+
+      // members
+      initials, removeMember,
+
+      // удаление
+      onDelete,
+
+      // edit
+      editMode, startEdit, cancelEdit, saveInfo, saving, editForm
     };
   }
 };
@@ -254,12 +422,51 @@ export default {
 
 <style scoped lang="scss">
 .orgs-scope {
-  .toolbar { display:flex; gap:8px; align-items:center; }
+  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+  .toolbar__edit { display:flex; gap:8px; align-items:center; }
   .btn--danger { border-color: rgba(220,38,38,.3); color:#dc2626; }
   .btn--danger:hover { background:#fee2e2; }
+
+  .name-stack > .input { display:block; margin-bottom:6px; }
+
   .dl { display:grid; grid-template-columns: 1fr; gap: 12px; }
-  .dl > div { display:grid; grid-template-columns: 180px 1fr; gap: 12px; align-items:start; }
+  .dl > div { display:grid; grid-template-columns: 200px 1fr; gap: 12px; align-items:center; }
   .dl .col-2 { grid-column: 1 / -1; }
-  @media (max-width: 768px) { .dl > div { grid-template-columns: 1fr; } }
+
+  /* Режим редактирования — аккуратная сетка */
+  .form-grid {
+    display:grid;
+    grid-template-columns: 200px 1fr;
+    gap: 12px 14px;
+    align-items:center;
+  }
+  .form-grid > label { display:contents; }
+  .form-grid > label > span {
+    grid-column: 1 / 2;
+    color: var(--muted, #9ca3af);
+    font-size: 0.9rem;
+  }
+  .form-grid > label > .input,
+  .form-grid > label > .textarea,
+  .form-grid > label > select {
+    grid-column: 2 / -1;
+    width: 100%;
+  }
+  .form-grid .col-span-2 { grid-column: 1 / -1; display:grid; grid-template-columns: 200px 1fr; gap: 12px 14px; }
+  .form-grid .col-span-2 > span { grid-column: 1 / 2; }
+  .form-grid .col-span-2 > .input,
+  .form-grid .col-span-2 > .textarea,
+  .form-grid .col-span-2 > select { grid-column: 2 / -1; }
+
+  @media (max-width: 768px) {
+    .dl > div { grid-template-columns: 1fr; align-items: start; }
+    .form-grid, .form-grid .col-span-2 { grid-template-columns: 1fr; }
+    .form-grid > label > span, .form-grid .col-span-2 > span { margin-bottom: 6px; }
+  }
 }
+
+.input { width: 100%; padding: 8px 10px; border: 1px solid #3b3f46; border-radius: 6px; background: transparent; color: inherit; }
+.input--sm { padding: 6px 8px; }
+.input--md { padding: 8px 10px; }
+.textarea { min-height: 110px; resize: vertical; }
 </style>
