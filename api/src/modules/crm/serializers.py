@@ -548,3 +548,26 @@ class TaskKanbanSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'project', 'assignee', 'status',
             'priority', 'due_date', 'kanban_order', 'estimated_hours'
         ]
+
+
+class BulkIDsSerializer(serializers.Serializer):
+    """Сериализатор списка ID"""
+    ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False)
+
+
+class BulkUpdateTaskSerializer(BulkIDsSerializer):
+    """Сериализатор массового обновления задач"""
+    status = serializers.ChoiceField(choices=[c[0] for c in Task.TASK_STATUS_CHOICES], required=False)
+    priority = serializers.ChoiceField(choices=[c[0] for c in Task.PRIORITY_CHOICES], required=False)
+    assignee_id = serializers.IntegerField(required=False, allow_null=True)
+    due_date = serializers.DateTimeField(required=False, allow_null=True)
+    project_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+class BulkUpdateProjectSerializer(BulkIDsSerializer):
+    """Сериализатор массового обновления проектов"""
+    status = serializers.ChoiceField(choices=[c[0] for c in Project.PROJECT_STATUS_CHOICES], required=False)
+    priority = serializers.ChoiceField(choices=[c[0] for c in Project.PRIORITY_CHOICES], required=False)
+    manager_id = serializers.IntegerField(required=False, allow_null=True)
+    start_date = serializers.DateField(required=False, allow_null=True)
+    end_date = serializers.DateField(required=False, allow_null=True)

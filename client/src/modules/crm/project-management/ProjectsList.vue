@@ -69,10 +69,36 @@
       </div>
     </div>
 
-    <div v-else class="row g-4">
-      <div class="col-md-6 col-lg-4" v-for="project in projects" :key="project?.id">
-        <div class="project-card h-100 pm-fade-in" v-if="project">
-          <div class="project-header" :style="{ borderColor: project.color }">
+    <div v-else>
+      <div v-if="selectedItems.length" class="mb-3 d-flex align-items-center gap-2">
+        <div class="dropdown">
+          <button class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown">Массовые действия</button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" @click.prevent="confirmBulkDelete">Удалить</a></li>
+            <li class="dropend">
+              <a class="dropdown-item dropdown-toggle" href="#" data-bs-toggle="dropdown">Изменить статус</a>
+              <ul class="dropdown-menu">
+                <li v-for="status in projectStatuses" :key="status.code">
+                  <a class="dropdown-item" href="#" @click.prevent="bulkChangeStatus(status.code)">{{ status.name }}</a>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <button class="btn btn-outline-secondary" @click="clearSelection">Отменить выбор</button>
+        <div v-if="isBulkActionLoading" class="spinner-border spinner-border-sm text-primary" role="status"></div>
+      </div>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" :checked="areAllSelected" @change="toggleSelectAll" id="selectAllProjects">
+        <label class="form-check-label" for="selectAllProjects">Выбрать все</label>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-6 col-lg-4" v-for="project in projects" :key="project?.id">
+          <div class="project-card h-100 pm-fade-in position-relative" v-if="project">
+            <div class="form-check position-absolute top-0 start-0 m-2">
+              <input class="form-check-input" type="checkbox" v-model="selectedItems" :value="project.id" @click.stop>
+            </div>
+            <div class="project-header" :style="{ borderColor: project.color }">
             <div class="d-flex justify-content-between align-items-start mb-2">
               <span class="badge rounded-pill" :class="getStatusClass(project.status)">
                 {{ getStatusText(project.status) }}
@@ -339,7 +365,9 @@ export default {
       projectPriorities: [],
       loadingStatuses: false,
       organizations: [],
-      loadingOrganizations: false
+      loadingOrganizations: false,
+      selectedItems: [],
+      isBulkActionLoading: false
     }
   },
   
@@ -357,10 +385,54 @@ export default {
           this.loadProjects()
         }, 500)
       }
+    },
+    areAllSelected() {
+      return this.projects.length > 0 && this.selectedItems.length === this.projects.length
     }
   },
   
   methods: {
+    toggleSelectAll(event) {
+      if (event.target.checked) {
+        this.selectedItems = this.projects.map(p => p.id)
+      } else {
+        this.selectedItems = []
+      }
+    },
+    clearSelection() {
+      this.selectedItems = []
+    },
+    async confirmBulkDelete() {
+      if (!this.selectedItems.length) return
+      if (!confirm('Удалить выбранные проекты?')) return
+      this.isBulkActionLoading = true
+      try {
+        await projectManagementApi.bulkDeleteProjects(this.selectedItems)
+        this.showSuccess('Проекты удалены')
+        await this.loadProjects()
+        this.clearSelection()
+      } catch (error) {
+        console.error('Ошибка массового удаления проектов:', error)
+        this.showError('Не удалось удалить проекты')
+      } finally {
+        this.isBulkActionLoading = false
+      }
+    },
+    async bulkChangeStatus(status) {
+      if (!this.selectedItems.length) return
+      this.isBulkActionLoading = true
+      try {
+        await projectManagementApi.bulkUpdateProjects({ ids: this.selectedItems, status })
+        this.showSuccess('Статус проектов обновлен')
+        await this.loadProjects()
+        this.clearSelection()
+      } catch (error) {
+        console.error('Ошибка массового обновления проектов:', error)
+        this.showError('Не удалось обновить проекты')
+      } finally {
+        this.isBulkActionLoading = false
+      }
+    },
     async loadProjects() {
       this.loading = true
       try {
@@ -391,6 +463,7 @@ export default {
         } else {
           this.projects = Array.isArray(response.data) ? response.data : []
         }
+        this.selectedItems = []
       } catch (error) {
         console.error('Ошибка загрузки проектов:', error)
         this.projects = []
