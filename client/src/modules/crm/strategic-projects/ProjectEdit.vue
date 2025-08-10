@@ -185,6 +185,36 @@
                     </div>
                   </div>
                 </div>
+                
+                <div class="row">
+                  <div class="col-md-4">
+                    <div class="form-group">
+                      <label class="form-label">
+                        <i class="fas fa-building mr-2"></i>
+                        Организация
+                      </label>
+                      <div class="select-wrapper">
+                        <select v-model="project.organization_id" class="form-control custom-select">
+                          <option :value="null">—</option>
+                          <option v-for="org in organizations" :key="org.id" :value="org.id">
+                            {{ org.name }}
+                          </option>
+                        </select>
+                        <div class="select-arrow">
+                          <i class="fas fa-chevron-down"></i>
+                        </div>
+                      </div>
+                      <small v-if="loadingOrgs" class="form-text text-info">
+                        <i class="fas fa-spinner fa-spin mr-1"></i>
+                        Загрузка организаций...
+                      </small>
+                      <small v-else-if="organizations.length === 0" class="form-text text-warning">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        Организации не найдены
+                      </small>
+                    </div>
+                  </div>
+                </div>
 
                 <div class="row">
                   <div class="col-md-4">
@@ -492,6 +522,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiClient } from '@/js/api/manager'
+import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 
 export default {
   name: 'ProjectEdit',
@@ -514,10 +545,13 @@ export default {
       requires_budget: false,
       total_budget: null,
       stages: [],
-      status: 'draft'
+      status: 'draft',
+      organization_id: null
     })
-    
+
     const users = ref([])
+    const organizations = ref([])
+    const loadingOrgs = ref(false)
     const saving = ref(false)
     const submitting = ref(false)
     const loadingUsers = ref(false)
@@ -590,7 +624,22 @@ export default {
       }
       return icons[status] || 'fas fa-question-circle'
     }
-    
+
+    // Загрузка организаций
+    const loadOrganizations = async () => {
+      loadingOrgs.value = true
+      try {
+        const resp = await OrganizationApi.getOrganizations()
+        const list = resp?.data?.results || resp?.data || []
+        organizations.value = list.filter(org => org?.my_role)
+      } catch (e) {
+        console.error('Ошибка загрузки организаций:', e)
+        alert(e?.response?.data?.detail || 'Ошибка')
+      } finally {
+        loadingOrgs.value = false
+      }
+    }
+
     // Загрузка пользователей
     const loadUsers = async () => {
       loadingUsers.value = true
@@ -682,7 +731,9 @@ export default {
       try {
         const response = await apiClient.get(`/crm/strategic-projects/strategic-projects/${projectId}/`)
         project.value = response.data
-        
+        project.value.organization_id = response.data.organization?.id || null
+        delete project.value.organization
+
         // Убеждаемся, что массивы инициализированы
         if (!project.value.planned_results) {
           project.value.planned_results = []
@@ -741,16 +792,20 @@ export default {
       
       saving.value = true
       try {
+        const data = { ...project.value }
+        if (!data.organization_id) {
+          delete data.organization_id
+        }
         let response
         if (isEditMode.value) {
           response = await apiClient.patch(
             `/crm/strategic-projects/strategic-projects/${projectId}/`,
-            project.value
+            data
           )
         } else {
           response = await apiClient.post(
             '/crm/strategic-projects/strategic-projects/',
-            project.value
+            data
           )
         }
         
@@ -984,9 +1039,7 @@ export default {
     
     // Загрузка данных при монтировании
     onMounted(async () => {
-      console.log('Начинаем загрузку пользователей...')
-      await loadUsers()
-      console.log('Загружено пользователей:', users.value.length, users.value)
+      await Promise.all([loadUsers(), loadOrganizations()])
       await loadProject()
       initializeNewProject()
     })
@@ -994,7 +1047,9 @@ export default {
     return {
       project,
       users,
+      organizations,
       loadingUsers,
+      loadingOrgs,
       isEditMode,
       saving,
       submitting,
