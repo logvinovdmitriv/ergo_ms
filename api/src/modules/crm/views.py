@@ -394,7 +394,7 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     queryset = Project.objects.all()
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'priority', 'owner', 'manager']
+    filterset_fields = ['status', 'priority', 'owner', 'manager', 'organization']
     search_fields = ['name', 'description']
     ordering_fields = ['created_at', 'start_date', 'end_date', 'priority']
     ordering = ['-created_at']
@@ -414,24 +414,24 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
 
         queryset = super().get_queryset()
 
-        # Показываем только проекты организаций, где пользователь является владельцем
-        # или принятым участником
+        # Показываем проекты организаций, где пользователь владелец или участник,
+        # а также проекты без организации
         queryset = queryset.filter(
             Q(organization__owner=user) |
-            Q(organization__memberships__user=user, organization__memberships__status='accepted')
-        ).filter(
-            Q(owner=user) |
-            Q(manager=user) |
-            Q(team_members=user)
-        ).distinct()
+            Q(organization__memberships__user=user, organization__memberships__status='accepted') |
+            Q(organization__isnull=True)
+        )
 
         # Дополнительный фильтр "Мои проекты" (оставляем для совместимости)
         my_projects = self.request.query_params.get('my_projects', None)
-        if my_projects and my_projects.lower() == 'false':
-            # Если явно указано false, показываем все доступные проекты
-            queryset = super().get_queryset()
+        if not (my_projects and my_projects.lower() == 'false'):
+            queryset = queryset.filter(
+                Q(owner=user) |
+                Q(manager=user) |
+                Q(team_members=user)
+            )
 
-        return queryset
+        return queryset.distinct()
 
     @action(detail=True, methods=['post'])
     def add_member(self, request, pk=None):
@@ -515,7 +515,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     queryset = Task.objects.all()
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['status', 'priority', 'project', 'assignee', 'creator', 'parent']
+    filterset_fields = ['status', 'priority', 'project', 'assignee', 'creator', 'parent', 'organization']
     search_fields = ['title', 'description']
     ordering_fields = ['created_at', 'due_date', 'priority', 'kanban_order']
     ordering = ['kanban_order', '-created_at']
@@ -540,10 +540,11 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         queryset = super().get_queryset()
 
         # Ограничиваем задачи организациями, где пользователь владелец
-        # или принятый участник
+        # или принятый участник, а также задачи без организации
         queryset = queryset.filter(
             Q(organization__owner=user) |
-            Q(organization__memberships__user=user, organization__memberships__status='accepted')
+            Q(organization__memberships__user=user, organization__memberships__status='accepted') |
+            Q(organization__isnull=True)
         )
 
         # Параметр "Мои задачи"

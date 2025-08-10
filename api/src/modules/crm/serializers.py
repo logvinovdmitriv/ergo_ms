@@ -215,7 +215,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     manager_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     memberships = ProjectMemberSerializer(many=True, read_only=True)
     organization = OrganizationSerializer(read_only=True)
-    organization_id = serializers.IntegerField(write_only=True, required=False)
+    organization_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
     # Новые поля для статусов и приоритетов
     status_ref = ProjectStatusSerializer(read_only=True)
@@ -270,15 +270,23 @@ class ProjectSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         organization_id = validated_data.pop('organization_id', None)
-        if not organization_id:
-            raise serializers.ValidationError('organization_id is required')
-        try:
-            organization = Organization.objects.get(id=organization_id)
-        except Organization.DoesNotExist:
-            raise serializers.ValidationError('Организация не найдена')
+        organization = None
 
-        if not (organization.owner == user or OrganizationMember.objects.filter(organization=organization, user=user, status='accepted').exists()):
-            raise serializers.ValidationError('Вы не являетесь участником организации')
+        if organization_id:
+            try:
+                organization = Organization.objects.get(id=organization_id)
+            except Organization.DoesNotExist:
+                raise serializers.ValidationError('Организация не найдена')
+
+            if not (
+                organization.owner == user or
+                OrganizationMember.objects.filter(
+                    organization=organization,
+                    user=user,
+                    status='accepted'
+                ).exists()
+            ):
+                raise serializers.ValidationError('Вы не являетесь участником организации')
 
         validated_data['owner'] = user
         validated_data['organization'] = organization
@@ -421,7 +429,7 @@ class TaskSerializer(serializers.ModelSerializer):
     assignee_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     project_id = serializers.IntegerField(write_only=True)
     organization = OrganizationSerializer(read_only=True)
-    organization_id = serializers.IntegerField(write_only=True)
+    organization_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     parent = TaskListSerializer(read_only=True)
     parent_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     subtasks = TaskListSerializer(many=True, read_only=True)
@@ -475,20 +483,41 @@ class TaskSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         organization_id = validated_data.pop('organization_id', None)
-        if not organization_id:
-            raise serializers.ValidationError('organization_id is required')
-        try:
-            organization = Organization.objects.get(id=organization_id)
-        except Organization.DoesNotExist:
-            raise serializers.ValidationError('Организация не найдена')
-        if not (organization.owner == user or OrganizationMember.objects.filter(organization=organization, user=user, status='accepted').exists()):
-            raise serializers.ValidationError('Вы не являетесь участником организации')
-
         project_id = validated_data.pop('project_id', None)
+
         try:
-            project = Project.objects.get(id=project_id, organization=organization)
+            project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
-            raise serializers.ValidationError('Проект не найден в организации')
+            raise serializers.ValidationError('Проект не найден')
+
+        organization = None
+        if organization_id:
+            try:
+                organization = Organization.objects.get(id=organization_id)
+            except Organization.DoesNotExist:
+                raise serializers.ValidationError('Организация не найдена')
+        else:
+            organization = project.organization
+
+        if organization:
+            if project.organization_id != organization.id:
+                raise serializers.ValidationError('Проект не найден в организации')
+            if not (
+                organization.owner == user or
+                OrganizationMember.objects.filter(
+                    organization=organization,
+                    user=user,
+                    status='accepted'
+                ).exists()
+            ):
+                raise serializers.ValidationError('Вы не являетесь участником организации')
+        else:
+            if not (
+                project.owner_id == user.id or
+                project.manager_id == user.id or
+                project.team_members.filter(id=user.id).exists()
+            ):
+                raise serializers.ValidationError('Нет доступа к проекту')
 
         validated_data['project'] = project
         validated_data['creator'] = user

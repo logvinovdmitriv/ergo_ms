@@ -239,8 +239,28 @@
         <div v-if="loadingProjects"><div class="skeleton skeleton--row"></div></div>
         <div v-else>
           <ul>
-            <li v-for="p in projects" :key="p.id">{{ p.name }}</li>
+            <li v-for="p in projects" :key="p.id">
+              <router-link :to="{ name: 'ProjectDetail', params: { id: p.id } }">{{ p.name }}</router-link>
+            </li>
             <li v-if="projects.length === 0" class="muted">Проектов пока нет</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Задачи -->
+    <section class="card">
+      <header class="card__header">
+        <h3 class="card__title">Задачи</h3>
+      </header>
+      <div class="card__body">
+        <div v-if="loadingTasks"><div class="skeleton skeleton--row"></div></div>
+        <div v-else>
+          <ul>
+            <li v-for="t in tasks" :key="t.id">
+              <router-link :to="{ name: 'TaskDetail', params: { id: t.id } }">{{ t.title }}</router-link>
+            </li>
+            <li v-if="tasks.length === 0" class="muted">Задач пока нет</li>
           </ul>
         </div>
       </div>
@@ -280,10 +300,12 @@ export default {
     const myMember = ref(null);
     const isParticipant = ref(false);
     const projects = ref([]);
+    const tasks = ref([]);
 
     const loadingOrg = ref(false);
     const loadingMembers = ref(false);
     const loadingProjects = ref(false);
+    const loadingTasks = ref(false);
 
     const showInvite = ref(false);
     const inviting = ref(false);
@@ -316,6 +338,14 @@ export default {
         const resp = await OrganizationApi.getProjects(id);
         projects.value = resp?.data?.results || resp?.data || [];
       } finally { loadingProjects.value = false; }
+    };
+
+    const loadTasks = async () => {
+      loadingTasks.value = true;
+      try {
+        const resp = await OrganizationApi.getTasks(id);
+        tasks.value = resp?.data?.results || resp?.data || [];
+      } finally { loadingTasks.value = false; }
     };
 
     // ====== ПРАВА (как в списке) ======
@@ -457,15 +487,15 @@ export default {
     );
 
     onMounted(async () => {
-      await Promise.all([loadOrg(), loadMembers(), loadProjects()]);
+      await Promise.all([loadOrg(), loadMembers(), loadProjects(), loadTasks()]);
       editForm.value = { ...org.value };
     });
 
     return {
       id,
 
-      org, members, projects,
-      loadingOrg, loadingMembers, loadingProjects,
+      org, members, projects, tasks,
+      loadingOrg, loadingMembers, loadingProjects, loadingTasks,
       showInvite, inviting, onInviteSubmit,
 
       // права

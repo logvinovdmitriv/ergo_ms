@@ -45,6 +45,7 @@ class OrganizationApi {
     return await this.client.post(`/crm/organizations/${id}/leave/`);
   }
   async getProjects(orgId) { return await this.client.get(`/crm/projects/`, { params: { organization: orgId } }); }
+  async getTasks(orgId) { return await this.client.get(`/crm/tasks/`, { params: { organization: orgId } }); }
 
   // invites
   async inviteToOrganization(orgId, data) { return await this.client.post(`/crm/organizations/${orgId}/invite/`, data); }
