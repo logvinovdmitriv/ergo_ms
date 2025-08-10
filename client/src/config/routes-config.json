@@ -644,6 +644,14 @@
         "requiresAuth": true
       }
     },
+    "LMSStats": {
+      "path": "/lms/stats",
+      "component": "@/modules/lms/Stats/LmsStatsView.vue",
+      "meta": {
+        "title": "Статистика",
+        "requiresAuth": true
+      }
+    },
     "LMSLessonsManagement": {
       "path": "/lms/lessons-management",
       "component": "@/modules/lms/LessonsManagement/LessonsManagementView.vue",
