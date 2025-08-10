@@ -101,12 +101,22 @@ class ProjectManagementApi {
         return await this.client.delete(`/crm/tasks/${id}/`);
     }
 
-    async bulkDeleteTasks(ids) {
-        return await this.client.delete('/crm/tasks/bulk-delete/', { data: { ids } });
+    // ===== TASKS: BULK =====
+    async bulkUpdateTasks(payload) {
+        // payload: { ids: number[], status?, priority?, assignee_id?, clear_assignee?, due_date?, project_id? }
+        // Предпочтительно единый bulk endpoint:
+        // return await this.client.post('/crm/project-management/tasks/bulk-update/', payload)
+
+        // Fallback поштучно, если bulk эндпоинт недоступен
+        const { ids, ...patch } = payload;
+        const reqs = ids.map(id => this.client.patch(`/crm/tasks/${id}/`, patch));
+        return Promise.all(reqs);
     }
 
-    async bulkUpdateTasks(data) {
-        return await this.client.patch('/crm/tasks/bulk-update/', data);
+    async bulkDeleteTasks(ids) {
+        // return await this.client.post('/crm/project-management/tasks/bulk-delete/', { ids })
+        const reqs = ids.map(id => this.client.delete(`/crm/tasks/${id}/`));
+        return Promise.all(reqs);
     }
 
     async changeTaskStatus(taskId, status) {
