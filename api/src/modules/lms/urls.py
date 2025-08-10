@@ -50,6 +50,7 @@ urlpatterns = [
     path('analytics/student/', AnalyticsViewSet.as_view({'get': 'student_stats'}), name='student-analytics'),
     path('analytics/teacher/', AnalyticsViewSet.as_view({'get': 'teacher_stats'}), name='teacher-analytics'),
     path('analytics/dashboard/', AnalyticsViewSet.as_view({'get': 'dashboard'}), name='dashboard'),
+    path('analytics/achievements/progress/', AnalyticsViewSet.as_view({'get': 'achievements_progress'}), name='achievements-progress'),
     path('analytics/debug-lessons/', AnalyticsViewSet.as_view({'get': 'debug_lessons'}), name='debug-lessons'),
     
     # Endpoints для профиля

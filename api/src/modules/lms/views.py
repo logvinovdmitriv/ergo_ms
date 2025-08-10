@@ -17,6 +17,7 @@ from .base_views import (
 )
 from .utils import get_user_accessible_subjects, get_upcoming_deadlines
 from .analytics import AnalyticsService
+from . import analytics
 from .models import (
     Student, Teacher, StudentGroup, Subject, Grade, Theme,
     Lesson, Test, TestAttempt, SubmittedAssignment, UserRole,
@@ -1351,32 +1352,29 @@ class AnalyticsViewSet(viewsets.ViewSet):
         serializer = TeacherStatsSerializer(stats)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='dashboard')
     def dashboard(self, request):
-        """Общая информация для дашборда"""
-        user = request.user
-        
-        # Используем утилиту для получения дедлайнов
-        deadlines = get_upcoming_deadlines(user)
-        
-        # Непрочитанные уведомления
-        unread_notifications = Notification.objects.filter(
-            recipient=user, is_read=False
-        ).count()
-        
-        # Последние оценки
-        recent_grades = Grade.objects.filter(
-            student=user
-        ).order_by('-lastupdate')[:5]
-        
-        dashboard_data = {
-            'upcoming_assignments': AssignmentSerializer(deadlines['assignments'], many=True).data,
-            'upcoming_events': CalendarEventSerializer(deadlines['events'], many=True).data,
-            'unread_notifications': unread_notifications,
-            'recent_grades': GradeSerializer(recent_grades, many=True).data
-        }
-        
-        return Response(dashboard_data)
+        role = request.query_params.get('role')
+        date_from = request.query_params.get('from')
+        date_to = request.query_params.get('to')
+        course_id = request.query_params.get('course')
+
+        is_teacher = bool(request.user.is_staff or getattr(request.user, 'is_teacher', False))
+
+        if role == 'teacher' and is_teacher:
+            data = analytics.get_teacher_dashboard(request.user, date_from, date_to, course_id)
+        else:
+            data = analytics.get_student_dashboard(request.user, date_from, date_to, course_id)
+
+        return Response(data)
+
+    @action(detail=False, methods=['get'], url_path='achievements/progress')
+    def achievements_progress(self, request):
+        user_id = int(request.query_params.get('user') or request.user.id)
+        if user_id != request.user.id and not (request.user.is_staff or getattr(request.user, 'is_teacher', False)):
+            return Response({"detail": "Forbidden"}, status=403)
+        data = analytics.get_achievements_progress(user_id)
+        return Response(data)
 
     @action(detail=False, methods=['get'])
     def debug_lessons(self, request):
