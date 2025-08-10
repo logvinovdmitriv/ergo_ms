@@ -70,25 +70,17 @@
     </div>
 
     <div v-else>
-      <div v-if="selectedItems.length" class="mb-3 d-flex align-items-center gap-2">
-        <div class="dropdown">
-          <button class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown">Массовые действия</button>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="#" @click.prevent="confirmBulkDelete">Удалить</a></li>
-            <li class="dropend">
-              <a class="dropdown-item dropdown-toggle" href="#" data-bs-toggle="dropdown">Изменить статус</a>
-              <ul class="dropdown-menu">
-                <li v-for="status in projectStatuses" :key="status.code">
-                  <a class="dropdown-item" href="#" @click.prevent="bulkChangeStatus(status.code)">{{ status.name }}</a>
-                </li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-        <button class="btn btn-outline-secondary" @click="clearSelection">Отменить выбор</button>
-        <div v-if="isBulkActionLoading" class="spinner-border spinner-border-sm text-primary" role="status"></div>
-      </div>
-
+      <BulkActionsBar
+        entity="project"
+        :visible="selectedItems.length > 0"
+        :selectedCount="selectedItems.length"
+        :loading="isBulkActionLoading"
+        :statuses="projectStatuses"
+        :loadingDictionaries="loadingStatuses"
+        @change-status="bulkChangeStatus"
+        @delete-selected="confirmBulkDelete"
+        @clear-selection="clearSelection"
+      />
       <div class="form-check mb-2">
         <input class="form-check-input" type="checkbox" :checked="areAllSelected" @change="toggleSelectAll" id="selectAllProjects">
         <label class="form-check-label" for="selectAllProjects">Выбрать все</label>
@@ -319,10 +311,15 @@ import projectManagementApi from '@/modules/crm/project-management/js/projectMan
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
 import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
+import BulkActionsBar from './components/BulkActionsBar.vue'
 
 export default {
   name: 'ProjectsList',
-  components: { Edit, Trash2 },
+  components: {
+    Edit,
+    Trash2,
+    BulkActionsBar
+  },
   props: {
     managementMode: { type: Boolean, default: false }
   },
