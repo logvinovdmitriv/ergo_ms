@@ -207,7 +207,14 @@
                     </div>
                   </div>
                 </td>
-                <td><span class="badge badge--outline">{{ m.role || 'member' }}</span></td>
+                <td>
+                  <template v-if="canManage">
+                    <select v-model="m.role" class="input input--sm" @change="changeRole(m)" :disabled="m.role === 'owner'">
+                      <option v-for="r in memberRoles" :key="r" :value="r">{{ r }}</option>
+                    </select>
+                  </template>
+                  <span v-else class="badge badge--outline">{{ m.role || 'member' }}</span>
+                </td>
                 <td>
                   <template v-if="canManage">
                     <select v-model="m.status" class="input input--sm" @change="changeStatus(m)">
@@ -347,17 +354,17 @@ export default {
     const myRole = (o) =>
       (o?.my_role) ||
       (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
-
-    const memberStatuses = ['pending', 'accepted', 'declined', 'revoked'];
+      
+    const memberRoles = ['admin', 'member', 'viewer'];
 
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
 
-    const changeStatus = async (m) => {
+    const changeRole = async (m) => {
       try {
-        await OrganizationApi.updateOrganizationMember(id, m.user.id, { status: m.status });
+        await OrganizationApi.updateOrganizationMember(id, m.user.id, { role: m.role });
         await loadMembers();
       } catch (e) {
-        alert(e?.response?.data?.detail || 'Ошибка изменения статуса');
+        alert(e?.response?.data?.detail || 'Ошибка изменения роли');
       }
     };
 
@@ -385,9 +392,11 @@ export default {
     };
 
     const onDelete = async () => {
+      const newOwnerId = prompt('ID нового владельца');
+      if (!newOwnerId) return;
       if (!confirm('Удалить организацию? Это действие нельзя отменить.')) return;
       try {
-        await OrganizationApi.deleteOrganization(id);
+        await OrganizationApi.deleteOrganization(id, newOwnerId);
         router.push({ name: 'OrganizationList' });
       } catch (e) {
         alert(e?.response?.data?.detail || 'Ошибка удаления');
@@ -452,7 +461,7 @@ export default {
       myRole, canInvite, canManage, isOwner,
 
       // members
-      initials, removeMember, changeStatus, memberStatuses,
+      initials, removeMember, changeRole, memberRoles,
 
       // удаление
       onDelete,

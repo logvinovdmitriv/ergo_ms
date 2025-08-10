@@ -74,8 +74,32 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         org = self.get_object()
-        if not self._is_owner_or_admin(org, request.user):
+        # только владелец может удалять организацию
+        if org.owner_id != request.user.id:
             return Response({'detail': 'Недостаточно прав'}, status=status.HTTP_403_FORBIDDEN)
+
+        new_owner_id = request.data.get('new_owner_id')
+        if not new_owner_id:
+            return Response({'detail': 'Необходимо указать new_owner_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            new_owner = User.objects.get(id=new_owner_id)
+        except User.DoesNotExist:
+            return Response({'detail': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            OrganizationMember.objects.get(organization=org, user=new_owner, status='accepted')
+        except OrganizationMember.DoesNotExist:
+            return Response({'detail': 'Пользователь должен быть участником организации со статусом accepted.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            OrganizationMember.objects.update_or_create(
+                organization=org, user=new_owner,
+                defaults={'role': 'owner', 'status': 'accepted'}
+            )
+            OrganizationMember.objects.filter(organization=org, user=request.user).delete()
+
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'])
