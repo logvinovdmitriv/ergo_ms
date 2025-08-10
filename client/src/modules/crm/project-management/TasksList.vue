@@ -14,7 +14,7 @@
         <div class="row g-3">
           <div class="col-lg-2 col-md-3">
             <label class="form-label"><i class="fas fa-search me-1"></i>Поиск</label>
-            <input type="text" class="form-control" v-model="filters.search" @input="debouncedSearch" 
+            <input type="text" class="form-control" v-model="filters.search" @input="debouncedSearch"
                    placeholder="Поиск по названию...">
           </div>
           <div class="col-lg-2 col-md-3">
@@ -134,8 +134,8 @@
                 </td>
                 <td class="project-cell">
                   <div class="project-info" v-if="task.project">
-                    <div class="project-badge" 
-                         :style="{ backgroundColor: task.project.color || '#007bff' }" 
+                    <div class="project-badge"
+                         :style="{ backgroundColor: task.project.color || '#007bff' }"
                          :title="task.project.name">
                       <i class="fas fa-folder me-1"></i>
                       <span class="project-name">{{ task.project.name }}</span>
@@ -150,7 +150,7 @@
                 </td>
                 <td>
                   <div class="assignee-info" v-if="task.assignee">
-                    <img :src="getAvatarUrl(task.assignee)" 
+                    <img :src="getAvatarUrl(task.assignee)"
                          :alt="task.assignee.full_name || task.assignee.username"
                          class="assignee-avatar">
                     <span class="assignee-name">{{ task.assignee.full_name || `${task.assignee.first_name} ${task.assignee.last_name}`.trim() || task.assignee.username }}</span>
@@ -196,21 +196,21 @@
     <nav v-if="pagination.total_pages > 1" class="mt-5">
       <ul class="pagination pagination-modern justify-content-center">
         <li class="page-item" :class="{ disabled: !pagination.previous }">
-          <button class="page-link" @click="changePage(pagination.current_page - 1)" 
+          <button class="page-link" @click="changePage(pagination.current_page - 1)"
                   :disabled="!pagination.previous">
             <i class="fas fa-chevron-left"></i>
           </button>
         </li>
-        
-        <li class="page-item" 
-            v-for="page in getPageNumbers()" 
+
+        <li class="page-item"
+            v-for="page in getPageNumbers()"
             :key="page"
             :class="{ active: page === pagination.current_page }">
           <button class="page-link" @click="changePage(page)">{{ page }}</button>
         </li>
-        
+
         <li class="page-item" :class="{ disabled: !pagination.next }">
-          <button class="page-link" @click="changePage(pagination.current_page + 1)" 
+          <button class="page-link" @click="changePage(pagination.current_page + 1)"
                   :disabled="!pagination.next">
             <i class="fas fa-chevron-right"></i>
           </button>
@@ -247,13 +247,13 @@
                   </select>
                 </div>
               </div>
-              
+
               <div class="mb-4">
                 <label class="form-label fw-bold">Описание</label>
                 <textarea class="form-control" rows="3" v-model="currentTask.description"
                           placeholder="Опишите задачу подробнее"></textarea>
               </div>
-              
+
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label class="form-label fw-bold">Исполнитель</label>
@@ -274,7 +274,7 @@
                   </select>
                 </div>
               </div>
-              
+
               <div class="row g-3 mb-4">
                 <div class="col-md-4">
                   <label class="form-label fw-bold">Приоритет</label>
@@ -294,7 +294,7 @@
                   <input type="datetime-local" class="form-control" v-model="currentTask.due_date">
                 </div>
               </div>
-              
+
               <div class="mb-4">
                 <label class="form-label fw-bold">Оценка времени (часы)</label>
                 <input type="number" class="form-control" step="0.5" v-model="currentTask.estimated_hours"
@@ -304,7 +304,7 @@
           </div>
           <div class="modal-footer border-top">
             <button type="button" class="btn btn-light" data-bs-dismiss="modal">Отменить</button>
-            <button type="button" class="btn btn-primary" @click="submitTask" 
+            <button type="button" class="btn btn-primary" @click="submitTask"
                     :disabled="!currentTask.title || !currentTask.project_id">
               <i class="fas fa-save me-2"></i>{{ isEditing ? 'Сохранить' : 'Создать' }}
             </button>
@@ -366,7 +366,7 @@
                     <div class="fw-bold text-dark">
                       {{ selectedTask.project?.name || 'Без проекта' }}
                     </div>
-                    <div class="project-color-bar mt-2" v-if="selectedTask.project" 
+                    <div class="project-color-bar mt-2" v-if="selectedTask.project"
                          :style="{ backgroundColor: selectedTask.project.color || '#007bff' }">
                     </div>
                   </div>
@@ -384,7 +384,7 @@
                       </h6>
                     </div>
                     <div class="d-flex align-items-center" v-if="selectedTask.assignee">
-                      <img :src="getAvatarUrl(selectedTask.assignee)" 
+                      <img :src="getAvatarUrl(selectedTask.assignee)"
                            :alt="selectedTask.assignee.full_name || selectedTask.assignee.username"
                            class="rounded-circle me-2"
                            style="width: 32px; height: 32px; object-fit: cover;">
@@ -486,7 +486,7 @@
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
               <i class="fas fa-times me-2"></i>Закрыть
             </button>
-            <button v-if="selectedTask.project" 
+            <button v-if="selectedTask.project"
                     @click="goToProject"
                     class="btn btn-primary">
               <i class="fas fa-folder-open me-2"></i>Перейти к проекту
@@ -567,7 +567,7 @@ export default {
       loadingUsers: false
     }
   },
-  
+
   async mounted() {
     await this.loadProjects()
     await this.loadAllUsers()
@@ -580,7 +580,7 @@ export default {
     // Открытие задачи из параметров запроса
     await this.handleOpenFromQuery()
   },
-  
+
   computed: {
     debouncedSearch() {
       return () => {
@@ -613,14 +613,14 @@ export default {
     async loadProjects() {
       try {
         const response = await projectManagementApi.getProjects({ my_projects: true })
-        this.projects = Array.isArray(response.data.results) ? response.data.results : 
+        this.projects = Array.isArray(response.data.results) ? response.data.results :
                         Array.isArray(response.data) ? response.data : []
       } catch (error) {
         console.error('Ошибка загрузки проектов:', error)
         this.projects = []
       }
     },
-    
+
     async loadAllUsers() {
       this.loadingUsers = true
       try {
@@ -658,7 +658,7 @@ export default {
         this.loadingUsers = false
       }
     },
-    
+
     async loadTasks() {
       this.loading = true
       try {
@@ -667,16 +667,16 @@ export default {
           page_size: 20,
           ...this.filters
         }
-        
+
         // Убираем пустые фильтры, но оставляем булевые true
         Object.keys(params).forEach(key => {
           if (params[key] === '' || (params[key] === false && key !== 'my_tasks')) {
             delete params[key]
           }
         })
-        
+
         const response = await projectManagementApi.getTasks(params)
-        
+
         if (response.data.results) {
           this.tasks = response.data.results
           this.pagination = {
@@ -696,14 +696,14 @@ export default {
         this.loading = false
       }
     },
-    
+
     changePage(page) {
       if (page >= 1 && page <= this.pagination.total_pages) {
         this.pagination.current_page = page
         this.loadTasks()
       }
     },
-    
+
     onAssigneeChange() {
       // Когда выбран конкретный исполнитель, сбрасываем "Мои задачи"
       if (this.filters.assignee) {
@@ -712,7 +712,7 @@ export default {
       this.pagination.current_page = 1  // Сбрасываем на первую страницу
       this.loadTasks()
     },
-    
+
     onMyTasksChange() {
       // Когда включен "Мои задачи", сбрасываем фильтр по исполнителю
       if (this.filters.my_tasks) {
@@ -729,24 +729,24 @@ export default {
           projectManagementApi.getTaskStatuses(),
           projectManagementApi.getTaskPriorities()
         ])
-        
+
         // Обрабатываем ответ - может быть массив или объект с results
-        this.taskStatuses = Array.isArray(statusesResponse.data) ? 
-          statusesResponse.data.filter(s => s.is_active) : 
+        this.taskStatuses = Array.isArray(statusesResponse.data) ?
+          statusesResponse.data.filter(s => s.is_active) :
           (statusesResponse.data.results || []).filter(s => s.is_active)
-          
-        this.taskPriorities = Array.isArray(prioritiesResponse.data) ? 
-          prioritiesResponse.data.filter(p => p.is_active) : 
+
+        this.taskPriorities = Array.isArray(prioritiesResponse.data) ?
+          prioritiesResponse.data.filter(p => p.is_active) :
           (prioritiesResponse.data.results || []).filter(p => p.is_active)
-          
+
         console.log(`Загружено статусов задач: ${this.taskStatuses.length}, приоритетов: ${this.taskPriorities.length}`)
         console.log('Статусы задач:', this.taskStatuses.map(s => s.name))
         console.log('Приоритеты задач:', this.taskPriorities.map(p => p.name))
-        
+
         // Устанавливаем значения по умолчанию если есть
         const defaultStatus = this.taskStatuses.find(s => s.is_default)
         const defaultPriority = this.taskPriorities.find(p => p.is_default)
-        
+
         if (defaultStatus && !this.isEditing) {
           this.currentTask.status = defaultStatus.code
         }
@@ -773,16 +773,16 @@ export default {
         this.loadingStatuses = false
       }
     },
-    
+
     getPageNumbers() {
       const pages = []
       const current = this.pagination.current_page
       const total = this.pagination.total_pages
-      
+
       for (let i = Math.max(1, current - 2); i <= Math.min(total, current + 2); i++) {
         pages.push(i)
       }
-      
+
       return pages
     },
 
@@ -791,7 +791,7 @@ export default {
       await this.loadStatusesAndPriorities()
       console.log('Статусы и приоритеты задач обновлены:', this.taskStatuses.length, this.taskPriorities.length)
     },
-    
+
     async createTask(parentTask = null) {
       this.isEditing = false
 
@@ -825,8 +825,8 @@ export default {
     createSubTask(task) {
       this.createTask(task)
     },
-    
-    editTask(task) {
+
+    async editTask(task) {
       this.isEditing = true
       this.currentTask = {
         id: task.id,
@@ -847,7 +847,7 @@ export default {
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
     },
-    
+
     editTaskFromView() {
       this.editTask(this.selectedTask)
 
@@ -865,7 +865,7 @@ export default {
       const modal = new Modal(modalEl)
       modal.show()
     },
-    
+
     async submitTask() {
       try {
         // Подготавливаем данные задачи, конвертируя пустые строки в null
@@ -878,28 +878,28 @@ export default {
           estimated_hours: this.currentTask.estimated_hours || null,
           parent_id: this.currentTask.parent_id || null
         }
-        
+
         if (this.isEditing) {
           await projectManagementApi.updateTask(taskData.id, taskData)
         } else {
           await projectManagementApi.createTask(taskData)
         }
-        
+
         // Закрываем модальное окно
         const modal = Modal.getInstance(document.getElementById('taskModal'))
         if (modal) modal.hide()
-        
+
         // Перезагружаем список
         this.loadTasks()
-        
+
         this.showSuccess(this.isEditing ? 'Задача обновлена' : 'Задача создана')
       } catch (error) {
         console.error('Ошибка сохранения задачи:', error)
         console.error('Детали ошибки:', error.response?.data)
-        
+
         // Показываем детали ошибки
         let errorMessage = 'Ошибка сохранения задачи'
-        
+
         if (error.response?.data) {
           if (typeof error.response.data === 'object') {
             const errors = []
@@ -917,16 +917,16 @@ export default {
             errorMessage += ': ' + error.response.data
           }
         }
-        
+
         this.showError(errorMessage)
       }
     },
-    
+
     deleteTask(task) {
       this.currentTask = task
       this.confirmDeleteTask()
     },
-    
+
     async confirmDeleteTask() {
       const confirmed = await this.showConfirmDialog({
         title: 'Удаление задачи',
@@ -935,20 +935,20 @@ export default {
         cancelText: 'Отмена',
         variant: 'danger'
       })
-      
+
       if (confirmed) {
         try {
           await projectManagementApi.deleteTask(this.currentTask.id)
-          
+
           // Закрываем модальное окно если открыто
           const modal = Modal.getInstance(document.getElementById('taskModal'))
           if (modal) modal.hide()
-          
+
           this.closeConfirmDialog()
-          
+
           // Перезагружаем список
           this.loadTasks()
-          
+
           this.showSuccess('Задача удалена')
         } catch (error) {
           console.error('Ошибка удаления задачи:', error)
@@ -957,7 +957,7 @@ export default {
         }
       }
     },
-    
+
     getStatusClass(status) {
       const classes = {
         'todo': 'bg-secondary',
@@ -968,12 +968,12 @@ export default {
       }
       return classes[status] || 'bg-secondary'
     },
-    
+
     getStatusText(status) {
       const statusObj = this.taskStatuses.find(s => s.code === status)
       return statusObj ? statusObj.name : status
     },
-    
+
     getPriorityClass(priority) {
       const classes = {
         'low': 'bg-light text-dark',
@@ -983,24 +983,24 @@ export default {
       }
       return classes[priority] || 'bg-light text-dark'
     },
-    
+
     getPriorityText(priority) {
       const priorityObj = this.taskPriorities.find(p => p.code === priority)
       return priorityObj ? priorityObj.name : priority
     },
-    
+
     getDueDateClass(dueDate, status) {
       if (!dueDate) return 'text-muted'
       if (status === 'done') return 'text-muted'
-      
+
       const now = new Date()
       const due = new Date(dueDate)
-      
+
       if (due < now) return 'text-danger fw-bold'
       if (due - now < 24 * 60 * 60 * 1000) return 'text-warning fw-bold'
       return 'text-muted'
     },
-    
+
     formatDate(date) {
       if (!date) return 'Не указан'
       return new Date(date).toLocaleDateString('ru-RU', {
@@ -1009,7 +1009,7 @@ export default {
         year: 'numeric'
       })
     },
-    
+
     formatDateTime(date) {
       if (!date) return 'Не указана'
       return new Date(date).toLocaleDateString('ru-RU', {
@@ -1020,17 +1020,17 @@ export default {
         minute: '2-digit'
       })
     },
-    
+
     formatDateTimeLocal(date) {
       if (!date) return ''
       return new Date(date).toISOString().slice(0, 16)
     },
-    
+
     truncateText(text, maxLength) {
       if (!text) return ''
       return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
     },
-    
+
     getAvatarUrl(user) {
       // Используем локальную утилиту для генерации аватаров
       return getAvatarUrl(user, 32)
@@ -1039,13 +1039,13 @@ export default {
     // Обработка URL параметров
     handleUrlParams() {
       const query = this.$route.query
-      
+
       // Автоматическое создание задачи, если есть соответствующие параметры
       if (query.create === 'task') {
         // Небольшая задержка для завершения инициализации
         setTimeout(() => {
           this.createTask()
-          
+
           // Если указан проект, предустанавливаем его
           if (query.project && this.projects.length > 0) {
             this.currentTask.project_id = query.project
@@ -1069,7 +1069,7 @@ export default {
         if (modal) {
           modal.hide()
         }
-        
+
         // Делаем переход после небольшой задержки, чтобы модальное окно успело закрыться
         setTimeout(() => {
           this.$router.push(`/crm/project-management/project/${this.selectedTask.project.id}`)
@@ -1101,7 +1101,7 @@ export default {
   @include pm-card;
   padding: 0;
   overflow: hidden;
-  
+
   .table-responsive {
     overflow-x: auto;
     overflow-y: visible;
@@ -1111,10 +1111,10 @@ export default {
 .tasks-table {
   margin-bottom: 0;
   table-layout: fixed;
-  
+
   thead {
     background: var(--bs-light);
-    
+
     th {
       border-top: none;
       border-bottom: 2px solid var(--bs-border-color);
@@ -1124,7 +1124,7 @@ export default {
       padding: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      
+
       &:first-child {
         width: 24%;
       }
@@ -1150,26 +1150,26 @@ export default {
       }
     }
   }
-  
+
   .task-row {
     cursor: pointer;
     transition: all $pm-transition;
-    
+
     &:hover {
       background-color: var(--bs-light);
     }
-    
+
     td {
       vertical-align: middle;
       padding: 0.75rem;
       border-bottom: 1px solid var(--bs-gray-200);
       overflow: hidden;
       word-wrap: break-word;
-      
+
       &.task-cell-main {
         white-space: normal;
       }
-      
+
       &.project-cell,
       &.actions-cell {
         white-space: nowrap;
@@ -1177,7 +1177,7 @@ export default {
       }
     }
   }
-  
+
   .task-cell-main {
     .task-title {
       font-size: $font-size-usual;
@@ -1185,26 +1185,26 @@ export default {
       color: var(--bs-heading-color);
       margin-bottom: 0.25rem;
     }
-    
+
     .task-description {
       font-size: $font-size-small;
       color: var(--bs-secondary-color);
       line-height: 1.5;
       margin-bottom: 0;
     }
-    
+
     .task-badges {
       display: flex;
       gap: 0.25rem;
       margin-top: 0.5rem;
-      
+
       .badge {
         font-size: 0.65rem;
         padding: 0.2rem 0.4rem;
       }
     }
   }
-  
+
   .project-cell {
     .project-info {
       .project-badge {
@@ -1218,7 +1218,7 @@ export default {
         max-width: 100%;
         border: none;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        
+
         .project-name {
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1226,32 +1226,32 @@ export default {
           display: inline-block;
           max-width: 140px;
         }
-        
+
         &:hover {
           transform: translateY(-1px);
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
         }
-        
+
         i {
           margin-right: 0.3rem;
           font-size: 0.7rem;
         }
       }
     }
-    
+
     .project-empty {
       font-size: 0.875rem;
       font-style: italic;
       color: var(--bs-secondary);
     }
   }
-  
+
   .assignee-info {
     display: flex;
     align-items: center;
     gap: 0.4rem;
     max-width: 100%;
-    
+
     .assignee-avatar {
       width: 28px;
       height: 28px;
@@ -1260,7 +1260,7 @@ export default {
       border: 2px solid var(--bs-gray-200);
       flex-shrink: 0;
     }
-    
+
     .assignee-name {
       font-size: 0.8rem;
       color: var(--bs-heading-color);
@@ -1284,16 +1284,16 @@ export default {
 .pagination-modern {
   .page-item {
     margin: 0 2px;
-    
+
     &:first-child .page-link {
       border-radius: $radius-small 0 0 $radius-small;
     }
-    
+
     &:last-child .page-link {
       border-radius: 0 $radius-small $radius-small 0;
     }
   }
-  
+
   .page-link {
     border: none;
     background: white;
@@ -1302,24 +1302,24 @@ export default {
     font-weight: $font-weight-bold;
     box-shadow: $pm-card-shadow;
     transition: all $pm-transition;
-    
+
     &:hover {
       background: var(--bs-primary);
       color: white;
       transform: translateY(-2px);
       box-shadow: $pm-card-hover-shadow;
     }
-    
+
     &:focus {
       box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
     }
   }
-  
+
   .page-item.active .page-link {
     background: var(--bs-primary);
     color: white;
   }
-  
+
   .page-item.disabled .page-link {
     background: var(--bs-gray-200);
     opacity: 0.5;
@@ -1336,7 +1336,7 @@ export default {
 .modal-header {
   background: var(--bs-light);
   padding: 1.5rem;
-  
+
   .modal-title {
     font-size: $font-size-h3;
     font-weight: $font-weight-bold;
@@ -1354,7 +1354,7 @@ export default {
 .form-select {
   border-radius: $radius-small;
   border-color: var(--bs-border-color);
-  
+
   &:focus {
     border-color: var(--bs-primary);
     box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
@@ -1364,20 +1364,20 @@ export default {
 // Модальное окно просмотра
 .info-section {
   margin-bottom: 1.5rem;
-  
+
   h6 {
     font-size: $font-size-micro;
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 1rem;
   }
-  
+
   .info-list {
     .info-item {
       display: flex;
       align-items: center;
       margin-bottom: 0.75rem;
-      
+
       i {
         width: 20px;
         text-align: center;
@@ -1393,17 +1393,17 @@ export default {
   padding: 1rem;
   background: var(--bs-light);
   border-radius: $radius-small;
-  
+
   i {
     font-size: 2rem;
   }
-  
+
   .time-value {
     font-size: 1.5rem;
     font-weight: $font-weight-bold;
     color: var(--bs-heading-color);
   }
-  
+
   .time-label {
     font-size: $font-size-small;
     color: var(--bs-secondary-color);
@@ -1419,7 +1419,7 @@ export default {
     align-items: center;
     justify-content: center;
   }
-  
+
   .icon-sm {
     width: 32px;
     height: 32px;
@@ -1428,32 +1428,32 @@ export default {
     justify-content: center;
     flex-shrink: 0;
   }
-  
+
   .info-card {
     transition: all 0.2s ease;
     border-color: var(--bs-gray-300) !important;
-    
+
     &:hover {
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       transform: translateY(-1px);
     }
   }
-  
+
   .project-color-bar {
     height: 3px;
     border-radius: 2px;
     width: 100%;
   }
-  
+
   .description-section {
     background-color: var(--bs-gray-100) !important;
     border: 1px solid var(--bs-gray-200);
   }
-  
+
   .meta-info {
     background-color: var(--bs-gray-100) !important;
     border: 1px solid var(--bs-gray-200);
-    
+
     small {
       font-size: 0.75rem;
       font-weight: 600;
@@ -1470,17 +1470,17 @@ export default {
   padding: 1rem;
   background: var(--bs-light);
   border-radius: $radius-small;
-  
+
   i {
     font-size: 2rem;
   }
-  
+
   .time-value {
     font-size: 1.5rem;
     font-weight: $font-weight-bold;
     color: var(--bs-heading-color);
   }
-  
+
   .time-label {
     font-size: $font-size-small;
     color: var(--bs-secondary-color);
@@ -1500,31 +1500,31 @@ export default {
     display: flex;
     gap: 0.25rem;
     justify-content: center;
-    
+
     .btn-action {
       padding: 0.375rem 0.5rem;
       border-radius: 6px;
       font-size: 0.875rem;
       transition: all 0.2s ease;
       border-width: 1px;
-      
+
       &:hover {
         transform: translateY(-1px);
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
       }
-      
+
       i {
         font-size: 0.85rem;
       }
     }
-    
+
     .btn-primary {
       &:hover {
         opacity: 0.9;
         transform: translateY(-1px);
       }
     }
-    
+
     .btn-danger {
       &:hover {
         opacity: 0.9;
@@ -1539,22 +1539,22 @@ export default {
   .tasks-list {
     padding: 1rem;
   }
-  
+
   .pm-page-header {
     flex-direction: column;
     gap: 1rem;
-    
+
     h2 {
       font-size: $font-size-h2;
     }
   }
-  
+
   .tasks-table-wrapper {
     overflow-x: auto;
-    
+
     .tasks-table {
       min-width: 800px;
     }
   }
 }
-</style> 
+</style>
