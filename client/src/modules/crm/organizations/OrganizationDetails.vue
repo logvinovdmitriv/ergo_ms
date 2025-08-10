@@ -9,7 +9,7 @@
           <button v-if="canManage" class="btn btn--sm btn--danger btn--ghost" @click="onDelete">
             Удалить организацию
           </button>
-          <button v-if="myMember" class="btn btn--sm btn--ghost" @click="onLeave">
+          <button v-if="isParticipant" class="btn btn--sm btn--ghost" @click="onLeave">
             Выйти из организации
           </button>
 
@@ -211,8 +211,8 @@
                   </div>
                 </td>
                 <td>
-                  <template v-if="canManage">
-                    <select v-model="m.role" class="input input--sm" @change="changeRole(m)" :disabled="m.role === 'owner'">
+                  <template v-if="canChangeRole(m)">
+                    <select v-model="m.role" class="input input--sm" @change="changeRole(m)">
                       <option v-for="r in memberRoles" :key="r" :value="r">{{ r }}</option>
                     </select>
                   </template>
@@ -295,6 +295,8 @@ export default {
 
     const org = ref({});
     const members = ref([]);
+    const myMember = ref(null);
+    const isParticipant = ref(false);
     const projects = ref([]);
 
     const loadingOrg = ref(false);
@@ -322,6 +324,7 @@ export default {
       try {
         const resp = await OrganizationApi.getOrganizationMembers(id);
         members.value = resp?.data || [];
+        updateMyMember();
       } finally { loadingMembers.value = false; }
     };
 
@@ -342,12 +345,17 @@ export default {
       org.value?.my_role === 'owner' || (uid.value && ownerIdFromOrg.value === uid.value)
     );
 
-    const myMember = computed(() => members.value.find(m => toStr(m.user?.id) === uid.value));
     const isAdminFromMembers = computed(() => ['admin', 'owner'].includes(myMember.value?.role));
     const isAdmin = computed(() => org.value?.my_role === 'admin' || isAdminFromMembers.value);
 
     const canInvite = computed(() => isOwner.value || isAdmin.value);
     const canManage = canInvite;
+
+    function updateMyMember() {
+      myMember.value = members.value.find(m => toStr(m.user?.id) === uid.value) || null;
+      isParticipant.value = !!myMember.value;
+    }
+    watch([members, uid], updateMyMember, { immediate: true });
 
     const myRole = (o) =>
       (o?.my_role) ||
@@ -356,6 +364,9 @@ export default {
     const memberRoles = computed(() =>
       isOwner.value ? ['owner', 'admin', 'member', 'viewer'] : ['admin', 'member', 'viewer']
     );
+
+    const canChangeRole = (m) =>
+      (isOwner.value || isAdmin.value) && toStr(m.user?.id) !== uid.value && m.role !== 'owner';
 
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
 
@@ -470,10 +481,10 @@ export default {
       showInvite, inviting, onInviteSubmit,
 
       // права
-      myRole, canInvite, canManage, isOwner, myMember,
+      myRole, canInvite, canManage, isOwner, isParticipant,
 
       // members
-      initials, removeMember, changeRole, memberRoles,
+      initials, removeMember, changeRole, memberRoles, canChangeRole,
 
       // действия
       onDelete, onLeave,

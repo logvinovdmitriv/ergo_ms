@@ -134,6 +134,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         if request.method == 'PATCH':
+            if str(member.user_id) == str(request.user.id):
+                return Response({'error': 'cannot change own role'}, status=status.HTTP_400_BAD_REQUEST)
             role = request.data.get('role')
             status_val = request.data.get('status')
             updated = False
