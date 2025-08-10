@@ -572,10 +572,13 @@ export default {
     await this.loadProjects()
     await this.loadAllUsers()
     await this.loadStatusesAndPriorities()
-    this.loadTasks()
-    
+    await this.loadTasks()
+
     // Проверяем URL параметры для автоматического создания задачи
     this.handleUrlParams()
+
+    // Открытие задачи из параметров запроса
+    await this.handleOpenFromQuery()
   },
   
   computed: {
@@ -597,6 +600,12 @@ export default {
     'filters.project'(val) {
       this.filters.assignee = ''
       this.loadUsersForProject(val)
+    },
+    '$route.query.open': {
+      immediate: false,
+      handler() {
+        this.handleOpenFromQuery()
+      }
     }
   },
 
@@ -841,15 +850,19 @@ export default {
     
     editTaskFromView() {
       this.editTask(this.selectedTask)
-      
+
       // Закрываем модальное окно просмотра
       const viewModal = Modal.getInstance(document.getElementById('taskViewModal'))
       if (viewModal) viewModal.hide()
     },
-    
+
     viewTask(task) {
       this.selectedTask = task
-      const modal = new Modal(document.getElementById('taskViewModal'))
+      const modalEl = document.getElementById('taskViewModal')
+      modalEl.addEventListener('hidden.bs.modal', () => {
+        this.$router.replace({ query: { ...this.$route.query, open: undefined } })
+      }, { once: true })
+      const modal = new Modal(modalEl)
       modal.show()
     },
     
@@ -1039,6 +1052,14 @@ export default {
           }
         }, 500)
       }
+    },
+
+    async handleOpenFromQuery() {
+      const id = this.$route.query.open
+      if (!id) return
+      if (!this.tasks?.length) await this.loadTasks()
+      const t = this.tasks.find(x => String(x.id) === String(id))
+      if (t) this.viewTask(t)
     },
 
     goToProject() {
