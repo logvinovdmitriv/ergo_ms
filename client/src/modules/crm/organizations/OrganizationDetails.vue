@@ -209,7 +209,12 @@
                 </td>
                 <td><span class="badge badge--outline">{{ m.role || 'member' }}</span></td>
                 <td>
-                  <span class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
+                  <template v-if="canManage">
+                    <select v-model="m.status" class="input input--sm" @change="changeStatus(m)">
+                      <option v-for="s in memberStatuses" :key="s" :value="s">{{ s }}</option>
+                    </select>
+                  </template>
+                  <span v-else class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
                     {{ m.status || 'pending' }}
                   </span>
                 </td>
@@ -343,7 +348,18 @@ export default {
       (o?.my_role) ||
       (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
 
+    const memberStatuses = ['pending', 'accepted', 'declined', 'revoked'];
+
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
+
+    const changeStatus = async (m) => {
+      try {
+        await OrganizationApi.updateOrganizationMember(id, m.user.id, { status: m.status });
+        await loadMembers();
+      } catch (e) {
+        alert(e?.response?.data?.detail || 'Ошибка изменения статуса');
+      }
+    };
 
     const removeMember = async (userIdToRemove) => {
       if (!confirm('Удалить участника из организации?')) return;
@@ -436,7 +452,7 @@ export default {
       myRole, canInvite, canManage, isOwner,
 
       // members
-      initials, removeMember,
+      initials, removeMember, changeStatus, memberStatuses,
 
       // удаление
       onDelete,

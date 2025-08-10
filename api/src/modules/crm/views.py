@@ -39,11 +39,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Публичные или те, где пользователь владелец/админ (статус accepted)
+        # Публичные или те, где пользователь владелец/участник (статус accepted)
         return Organization.objects.filter(
             Q(visibility='public') |
             Q(owner=user) |
-            Q(memberships__user=user, memberships__role__in=['owner', 'admin'], memberships__status='accepted')
+            Q(memberships__user=user, memberships__status='accepted')
         ).distinct()
 
     def perform_create(self, serializer):
@@ -134,10 +134,25 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         if request.method == 'PATCH':
             role = request.data.get('role')
-            if role not in dict(OrganizationMember.ROLE_CHOICES) or role == 'owner':
-                return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
-            member.role = role
-            member.save()
+            status_val = request.data.get('status')
+            updated = False
+
+            if role is not None:
+                if role not in dict(OrganizationMember.ROLE_CHOICES) or role == 'owner':
+                    return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+                member.role = role
+                updated = True
+
+            if status_val is not None:
+                if status_val not in dict(OrganizationMember.STATUS_CHOICES):
+                    return Response({'error': 'invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+                member.status = status_val
+                member.responded_at = timezone.now()
+                updated = True
+
+            if updated:
+                member.save()
+
             return Response(OrganizationMemberSerializer(member).data)
 
         if member.role == 'owner':
