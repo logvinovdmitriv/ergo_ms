@@ -207,7 +207,14 @@
                     </div>
                   </div>
                 </td>
-                <td><span class="badge badge--outline">{{ m.role || 'member' }}</span></td>
+                <td>
+                  <template v-if="canManage">
+                    <select v-model="m.role" class="input input--sm" @change="changeRole(m)" :disabled="m.role === 'owner'">
+                      <option v-for="r in memberRoles" :key="r" :value="r">{{ r }}</option>
+                    </select>
+                  </template>
+                  <span v-else class="badge badge--outline">{{ m.role || 'member' }}</span>
+                </td>
                 <td>
                   <span class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
                     {{ m.status || 'pending' }}
@@ -343,7 +350,18 @@ export default {
       (o?.my_role) ||
       (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
 
+    const memberRoles = ['admin', 'member', 'viewer'];
+
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
+
+    const changeRole = async (m) => {
+      try {
+        await OrganizationApi.updateOrganizationMember(id, m.user.id, { role: m.role });
+        await loadMembers();
+      } catch (e) {
+        alert(e?.response?.data?.detail || 'Ошибка изменения роли');
+      }
+    };
 
     const removeMember = async (userIdToRemove) => {
       if (!confirm('Удалить участника из организации?')) return;
@@ -369,9 +387,11 @@ export default {
     };
 
     const onDelete = async () => {
+      const newOwnerId = prompt('ID нового владельца');
+      if (!newOwnerId) return;
       if (!confirm('Удалить организацию? Это действие нельзя отменить.')) return;
       try {
-        await OrganizationApi.deleteOrganization(id);
+        await OrganizationApi.deleteOrganization(id, newOwnerId);
         router.push({ name: 'OrganizationList' });
       } catch (e) {
         alert(e?.response?.data?.detail || 'Ошибка удаления');
@@ -436,7 +456,7 @@ export default {
       myRole, canInvite, canManage, isOwner,
 
       // members
-      initials, removeMember,
+      initials, removeMember, changeRole, memberRoles,
 
       // удаление
       onDelete,
