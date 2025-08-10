@@ -102,12 +102,33 @@
     </div>
 
     <div v-else>
+      <div v-if="selectedItems.length" class="mb-3 d-flex align-items-center gap-2">
+        <div class="dropdown">
+          <button class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown">
+            Массовые действия
+          </button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" @click.prevent="confirmBulkDelete">Удалить</a></li>
+            <li class="dropend">
+              <a class="dropdown-item dropdown-toggle" href="#" data-bs-toggle="dropdown">Изменить статус</a>
+              <ul class="dropdown-menu">
+                <li v-for="status in taskStatuses" :key="status.code">
+                  <a class="dropdown-item" href="#" @click.prevent="bulkChangeStatus(status.code)">{{ status.name }}</a>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <button class="btn btn-outline-secondary" @click="clearSelection">Отменить выбор</button>
+        <div v-if="isBulkActionLoading" class="spinner-border spinner-border-sm text-primary" role="status"></div>
+      </div>
       <!-- Табличный вид -->
       <div class="tasks-table-wrapper">
         <div class="table-responsive">
           <table class="table table-hover tasks-table mb-0">
             <thead>
               <tr>
+                <th><input class="form-check-input" type="checkbox" :checked="areAllSelected" @change="toggleSelectAll" /></th>
                 <th>Задача</th>
                 <th>Проект</th>
                 <th>Исполнитель</th>
@@ -119,6 +140,7 @@
             </thead>
             <tbody>
               <tr v-for="task in tasks" :key="task?.id" class="task-row" @click="viewTask(task)">
+                <td @click.stop><input class="form-check-input" type="checkbox" v-model="selectedItems" :value="task.id" /></td>
                 <td class="task-cell-main">
                   <div class="task-info">
                     <h6 class="task-title mb-1">{{ task.title || 'Без названия' }}</h6>
@@ -564,7 +586,9 @@ export default {
       taskStatuses: [],
       taskPriorities: [],
       loadingStatuses: false,
-      loadingUsers: false
+      loadingUsers: false,
+      selectedItems: [],
+      isBulkActionLoading: false
     }
   },
   
@@ -590,6 +614,9 @@ export default {
           this.loadTasks()
         }, 500)
       }
+    },
+    areAllSelected() {
+      return this.tasks.length > 0 && this.selectedItems.length === this.tasks.length
     }
   },
 
@@ -610,6 +637,47 @@ export default {
   },
 
   methods: {
+    toggleSelectAll(event) {
+      if (event.target.checked) {
+        this.selectedItems = this.tasks.map(t => t.id)
+      } else {
+        this.selectedItems = []
+      }
+    },
+    clearSelection() {
+      this.selectedItems = []
+    },
+    async confirmBulkDelete() {
+      if (!this.selectedItems.length) return
+      if (!confirm('Удалить выбранные задачи?')) return
+      this.isBulkActionLoading = true
+      try {
+        await projectManagementApi.bulkDeleteTasks(this.selectedItems)
+        this.showSuccess('Задачи удалены')
+        await this.loadTasks()
+        this.clearSelection()
+      } catch (error) {
+        console.error('Ошибка массового удаления задач:', error)
+        this.showError('Не удалось удалить задачи')
+      } finally {
+        this.isBulkActionLoading = false
+      }
+    },
+    async bulkChangeStatus(status) {
+      if (!this.selectedItems.length) return
+      this.isBulkActionLoading = true
+      try {
+        await projectManagementApi.bulkUpdateTasks({ ids: this.selectedItems, status })
+        this.showSuccess('Статус задач обновлен')
+        await this.loadTasks()
+        this.clearSelection()
+      } catch (error) {
+        console.error('Ошибка массового обновления задач:', error)
+        this.showError('Не удалось обновить задачи')
+      } finally {
+        this.isBulkActionLoading = false
+      }
+    },
     async loadProjects() {
       try {
         const response = await projectManagementApi.getProjects({ my_projects: true })
@@ -689,6 +757,7 @@ export default {
         } else {
           this.tasks = Array.isArray(response.data) ? response.data : []
         }
+        this.selectedItems = []
       } catch (error) {
         console.error('Ошибка загрузки задач:', error)
         this.tasks = []

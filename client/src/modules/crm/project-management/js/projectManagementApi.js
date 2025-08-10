@@ -54,6 +54,14 @@ class ProjectManagementApi {
         return await this.client.delete(`/crm/projects/${id}/`);
     }
 
+    async bulkDeleteProjects(ids) {
+        return await this.client.delete('/crm/projects/bulk-delete/', { data: { ids } });
+    }
+
+    async bulkUpdateProjects(data) {
+        return await this.client.patch('/crm/projects/bulk-update/', data);
+    }
+
     async getProjectTasks(projectId, params = {}) {
         return await this.client.get(`/crm/projects/${projectId}/tasks/`, { params });
     }
@@ -91,6 +99,14 @@ class ProjectManagementApi {
 
     async deleteTask(id) {
         return await this.client.delete(`/crm/tasks/${id}/`);
+    }
+
+    async bulkDeleteTasks(ids) {
+        return await this.client.delete('/crm/tasks/bulk-delete/', { data: { ids } });
+    }
+
+    async bulkUpdateTasks(data) {
+        return await this.client.patch('/crm/tasks/bulk-update/', data);
     }
 
     async changeTaskStatus(taskId, status) {

@@ -21,10 +21,13 @@ from .serializers import (
     TaskSerializer, TaskListSerializer, TaskCalendarSerializer, TaskKanbanSerializer,
     TaskCommentSerializer, TaskAttachmentSerializer, TimeLogSerializer, CRMUserSerializer,
     ProjectStatusSerializer, ProjectPrioritySerializer, TaskStatusSerializer, TaskPrioritySerializer,
-    OrganizationSerializer, OrganizationMemberSerializer, OrganizationInviteSerializer
+    OrganizationSerializer, OrganizationMemberSerializer, OrganizationInviteSerializer,
+    BulkUpdateTaskSerializer, BulkUpdateProjectSerializer
 )
 
 User = get_user_model()
+
+MAX_BULK = 1000
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -509,6 +512,51 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             'progress': round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0)
         })
 
+    @action(detail=False, methods=['delete'], url_path='bulk-delete')
+    def bulk_delete(self, request, *args, **kwargs):
+        ids = request.data.get('ids') or request.query_params.getlist('ids')
+        if not ids:
+            return Response({'detail': 'ids is required'}, status=status.HTTP_400_BAD_REQUEST)
+        ids = list({int(i) for i in ids if str(i).isdigit()})
+        if not ids:
+            return Response({'detail': 'ids is empty'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(ids) > MAX_BULK:
+            return Response({'detail': f'Max {MAX_BULK} ids per request'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = self.filter_queryset(self.get_queryset()).filter(id__in=ids)
+        with transaction.atomic():
+            deleted_ids = list(qs.values_list('id', flat=True))
+            qs.delete()
+        return Response({'deleted': len(deleted_ids), 'ids': deleted_ids})
+
+    @action(detail=False, methods=['patch'], url_path='bulk-update')
+    def bulk_update(self, request, *args, **kwargs):
+        serializer = BulkUpdateProjectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        ids = data.pop('ids')
+        if len(ids) > MAX_BULK:
+            return Response({'detail': f'Max {MAX_BULK} ids per request'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = self.filter_queryset(self.get_queryset()).filter(id__in=ids)
+        manager = None
+        manager_present = False
+        if 'manager_id' in data:
+            manager_present = True
+            manager_id = data.pop('manager_id')
+            if manager_id is not None:
+                manager = User.objects.filter(pk=manager_id).first()
+                if manager is None:
+                    return Response({'detail': 'manager not found'}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            updated_ids = []
+            for obj in qs.select_for_update():
+                for field, value in data.items():
+                    setattr(obj, field, value)
+                if manager_present:
+                    obj.manager = manager
+                obj.save()
+                updated_ids.append(obj.id)
+        return Response({'updated': len(updated_ids), 'ids': updated_ids})
+
 
 class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     """ViewSet для управления задачами"""
@@ -573,6 +621,62 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             )
 
         return queryset
+
+    @action(detail=False, methods=['delete'], url_path='bulk-delete')
+    def bulk_delete(self, request, *args, **kwargs):
+        ids = request.data.get('ids') or request.query_params.getlist('ids')
+        if not ids:
+            return Response({'detail': 'ids is required'}, status=status.HTTP_400_BAD_REQUEST)
+        ids = list({int(i) for i in ids if str(i).isdigit()})
+        if not ids:
+            return Response({'detail': 'ids is empty'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(ids) > MAX_BULK:
+            return Response({'detail': f'Max {MAX_BULK} ids per request'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = self.filter_queryset(self.get_queryset()).filter(id__in=ids)
+        with transaction.atomic():
+            deleted_ids = list(qs.values_list('id', flat=True))
+            qs.delete()
+        return Response({'deleted': len(deleted_ids), 'ids': deleted_ids})
+
+    @action(detail=False, methods=['patch'], url_path='bulk-update')
+    def bulk_update(self, request, *args, **kwargs):
+        serializer = BulkUpdateTaskSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        ids = data.pop('ids')
+        if len(ids) > MAX_BULK:
+            return Response({'detail': f'Max {MAX_BULK} ids per request'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = self.filter_queryset(self.get_queryset()).filter(id__in=ids)
+        assignee = None
+        assignee_present = False
+        if 'assignee_id' in data:
+            assignee_present = True
+            assignee_id = data.pop('assignee_id')
+            if assignee_id is not None:
+                assignee = User.objects.filter(pk=assignee_id).first()
+                if assignee is None:
+                    return Response({'detail': 'assignee not found'}, status=status.HTTP_400_BAD_REQUEST)
+        project = None
+        project_present = False
+        if 'project_id' in data:
+            project_present = True
+            project_id = data.pop('project_id')
+            if project_id is not None:
+                project = Project.objects.filter(pk=project_id).first()
+                if project is None:
+                    return Response({'detail': 'project not found'}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            updated_ids = []
+            for obj in qs.select_for_update():
+                for field, value in data.items():
+                    setattr(obj, field, value)
+                if assignee_present:
+                    obj.assignee = assignee
+                if project_present:
+                    obj.project = project
+                obj.save()
+                updated_ids.append(obj.id)
+        return Response({'updated': len(updated_ids), 'ids': updated_ids})
 
     @action(detail=False, methods=['get'])
     def calendar(self, request):
