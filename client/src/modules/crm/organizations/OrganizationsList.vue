@@ -132,7 +132,10 @@ export default {
   setup() {
     const store = useStore();
     const router = useRouter();
-    const userId = store.state?.auth?.user?.id;
+
+    // Нормализованный id текущего пользователя (реактивно и без .value гонок)
+    const toStr = v => (v == null ? null : String(v));
+    const uid   = computed(() => toStr(store.state?.auth?.user?.id));
 
     const organizations = ref([]);
     const loading = ref(false);
@@ -153,13 +156,14 @@ export default {
 
     const filtered = computed(() => {
       const term = q.value.trim().toLowerCase();
-      if (!term) return organizations.value;
-      return organizations.value.filter(o => (o.name || '').toLowerCase().includes(term));
+      const items = organizations.value || [];
+      if (!term) return items;
+      return items.filter(o => (o?.name || '').toLowerCase().includes(term));
     });
 
     // методы
     const isOwner = (o) =>
-      o?.my_role === 'owner' || String(o?.owner?.id) === String(userId.value);
+      o?.my_role === 'owner' || toStr(o?.owner?.id ?? o?.owner_id) === uid.value;
 
     async function remove(o) {
       if (!confirm(`Удалить организацию «${o.name}»?`)) return;
@@ -169,11 +173,8 @@ export default {
 
     const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_role || 'member'));
 
-    const startEdit = (org) => {
-      editingId.value = org.id;
-      editName.value = org.name;
-    };
-    const cancelEdit = () => { editingId.value = null; };
+    const startEdit = (org) => { editingId.value = org.id; editName.value = org.name || ''; };
+    const cancelEdit = () => { editingId.value = null; editName.value = ''; };
     const saveEdit = async (orgId) => {
       await OrganizationApi.updateOrganization(orgId, { name: editName.value });
       editingId.value = null;

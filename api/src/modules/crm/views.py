@@ -39,8 +39,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # Публичные или те, где пользователь владелец/админ
         return Organization.objects.filter(
-            Q(owner=user) | Q(memberships__user=user, memberships__status='accepted')
+            Q(visibility='public') |
+            Q(owner=user) |
+            Q(memberships__user=user, memberships__role__in=['owner', 'admin', 'member', 'viewer'], memberships__status='accepted')
         ).distinct()
 
     def perform_create(self, serializer):
@@ -57,31 +60,30 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             }
         )
 
+    def update(self, request, *args, **kwargs):
+        org = self.get_object()
+        if not self._is_owner_or_admin(org, request.user):
+            return Response({'detail': 'Недостаточно прав'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        org = self.get_object()
+        if not self._is_owner_or_admin(org, request.user):
+            return Response({'detail': 'Недостаточно прав'}, status=status.HTTP_403_FORBIDDEN)
+        return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        """
-        Удаление организации доступно только владельцу.
-        """
-        organization = self.get_object()
-        if organization.owner_id != request.user.id:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+        org = self.get_object()
+        if not self._is_owner_or_admin(org, request.user):
+            return Response({'detail': 'Недостаточно прав'}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'])
     def invite(self, request, pk=None):
-        """Пригласить пользователя в организацию"""
+        """Пригласить пользователя в организацию (только админ/владелец)"""
         organization = self.get_object()
-        # Проверяем права: только владелец или администратор
-        if not (
-            organization.owner == request.user or
-            OrganizationMember.objects.filter(
-                organization=organization,
-                user=request.user,
-                role__in=['owner', 'admin'],
-                status='accepted'
-            ).exists()
-        ):
-            return Response(status=status.HTTP_403_FORBIDDEN)
+        if not self._is_owner_or_admin(organization, request.user):
+            return Response({'detail': 'Недостаточно прав'}, status=status.HTTP_403_FORBIDDEN)
 
         email = request.data.get('email')
         role = request.data.get('role', organization.default_role)
@@ -99,6 +101,16 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             invited_by=request.user,
         )
         return Response({'token': invite.token, 'status': invite.status}, status=status.HTTP_201_CREATED)
+    def _is_owner_or_admin(self, org, user):
+        return (
+            org.owner_id == user.id or
+            OrganizationMember.objects.filter(
+                organization=org,
+                user=user,
+                role__in=['owner', 'admin'],
+                status='accepted'
+            ).exists()
+        )
 
     @action(detail=True, methods=['get'])
     def members(self, request, pk=None):
