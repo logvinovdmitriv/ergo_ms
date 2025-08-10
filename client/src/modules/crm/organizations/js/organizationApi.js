@@ -25,11 +25,10 @@ class OrganizationApi {
   async updateOrganization(id, data) { return await this.client.patch(`/crm/organizations/${id}/`, data); }
 // убедитесь, что этот метод есть (и baseURL = '/api'):
   // create/update/delete
-    async deleteOrganization(id, newOwnerId) {
-        // DRF обычно возвращает 204 No Content
-        const resp = await this.client.delete(`/crm/organizations/${id}/`, { data: { new_owner_id: newOwnerId } });
-        return resp?.status ?? 204;
-    }
+  async deleteOrganization(id) {
+    const resp = await this.client.delete(`/crm/organizations/${id}/`);
+    return resp?.status ?? 204;
+  }
 
 
   async archiveOrganization(id) { return await this.client.post(`/crm/organizations/${id}/archive`); }
@@ -41,6 +40,9 @@ class OrganizationApi {
     // если на бэке есть отдельная ручка — подставить; иначе временный эндпоинт недоступен
     // здесь показываем пример DELETE на гипотетический /members/{user_id}
     return await this.client.delete(`/crm/organizations/${id}/members/${userId}/`);
+  }
+  async leaveOrganization(id) {
+    return await this.client.post(`/crm/organizations/${id}/leave/`);
   }
   async getProjects(orgId) { return await this.client.get(`/crm/projects/`, { params: { organization: orgId } }); }
 

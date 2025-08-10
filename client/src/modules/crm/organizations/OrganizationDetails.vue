@@ -9,6 +9,9 @@
           <button v-if="canManage" class="btn btn--sm btn--danger btn--ghost" @click="onDelete">
             Удалить организацию
           </button>
+          <button v-if="myMember" class="btn btn--sm btn--ghost" @click="onLeave">
+            Выйти из организации
+          </button>
 
           <!-- Редактирование общей информации -->
           <button
@@ -216,12 +219,7 @@
                   <span v-else class="badge badge--outline">{{ m.role || 'member' }}</span>
                 </td>
                 <td>
-                  <template v-if="canManage">
-                    <select v-model="m.status" class="input input--sm" @change="changeStatus(m)">
-                      <option v-for="s in memberStatuses" :key="s" :value="s">{{ s }}</option>
-                    </select>
-                  </template>
-                  <span v-else class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
+                  <span class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
                     {{ m.status || 'pending' }}
                   </span>
                 </td>
@@ -355,14 +353,16 @@ export default {
       (o?.my_role) ||
       (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
       
-    const memberRoles = ['admin', 'member', 'viewer'];
+    const memberRoles = computed(() =>
+      isOwner.value ? ['owner', 'admin', 'member', 'viewer'] : ['admin', 'member', 'viewer']
+    );
 
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
 
     const changeRole = async (m) => {
       try {
         await OrganizationApi.updateOrganizationMember(id, m.user.id, { role: m.role });
-        await loadMembers();
+        await Promise.all([loadMembers(), loadOrg()]);
       } catch (e) {
         alert(e?.response?.data?.detail || 'Ошибка изменения роли');
       }
@@ -392,14 +392,26 @@ export default {
     };
 
     const onDelete = async () => {
-      const newOwnerId = prompt('ID нового владельца');
-      if (!newOwnerId) return;
       if (!confirm('Удалить организацию? Это действие нельзя отменить.')) return;
       try {
-        await OrganizationApi.deleteOrganization(id, newOwnerId);
+        await OrganizationApi.deleteOrganization(id);
         router.push({ name: 'OrganizationList' });
       } catch (e) {
         alert(e?.response?.data?.detail || 'Ошибка удаления');
+      }
+    };
+
+    const onLeave = async () => {
+      if (isOwner.value) {
+        alert('Вы владелец организации. Сначала передайте статус владельца.');
+        return;
+      }
+      if (!confirm('Выйти из организации?')) return;
+      try {
+        await OrganizationApi.leaveOrganization(id);
+        router.push({ name: 'OrganizationList' });
+      } catch (e) {
+        alert(e?.response?.data?.detail || 'Ошибка выхода');
       }
     };
 
@@ -458,13 +470,13 @@ export default {
       showInvite, inviting, onInviteSubmit,
 
       // права
-      myRole, canInvite, canManage, isOwner,
+      myRole, canInvite, canManage, isOwner, myMember,
 
       // members
       initials, removeMember, changeRole, memberRoles,
 
-      // удаление
-      onDelete,
+      // действия
+      onDelete, onLeave,
 
       // edit
       editMode, startEdit, cancelEdit, saveInfo, saving, editForm
