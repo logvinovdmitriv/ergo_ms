@@ -11,7 +11,7 @@
         <div class="row g-3">
           <div class="col-md-3">
             <label class="form-label"><i class="fas fa-search me-1"></i>Поиск</label>
-            <input type="text" class="form-control" v-model="filters.search" @input="debouncedSearch" 
+            <input type="text" class="form-control" v-model="filters.search" @input="debouncedSearch"
                    placeholder="Поиск по названию...">
           </div>
           <div class="col-md-2">
@@ -88,130 +88,134 @@
         <button class="btn btn-outline-secondary" @click="clearSelection">Отменить выбор</button>
         <div v-if="isBulkActionLoading" class="spinner-border spinner-border-sm text-primary" role="status"></div>
       </div>
+
       <div class="form-check mb-2">
         <input class="form-check-input" type="checkbox" :checked="areAllSelected" @change="toggleSelectAll" id="selectAllProjects">
         <label class="form-check-label" for="selectAllProjects">Выбрать все</label>
       </div>
+
       <div class="row g-4">
         <div class="col-md-6 col-lg-4" v-for="project in projects" :key="project?.id">
           <div class="project-card h-100 pm-fade-in position-relative" v-if="project">
             <div class="form-check position-absolute top-0 start-0 m-2">
               <input class="form-check-input" type="checkbox" v-model="selectedItems" :value="project.id" @click.stop>
             </div>
+
             <div class="project-header" :style="{ borderColor: project.color }">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <span class="badge rounded-pill" :class="getStatusClass(project.status)">
-                {{ getStatusText(project.status) }}
-              </span>
-              <span class="badge rounded-pill" :class="getPriorityClass(project.priority)">
-                {{ getPriorityText(project.priority) }}
-              </span>
-            </div>
-            <h5 class="project-title mb-0">{{ project.name || 'Без названия' }}</h5>
-          </div>
-          
-          <div class="project-body">
-            <p class="project-description">{{ project.description || 'Нет описания' }}</p>
-            
-            <!-- Прогресс -->
-            <div class="progress-section">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="text-muted small">Прогресс выполнения</span>
-                <span class="progress-value">{{ project.progress || 0 }}%</span>
-              </div>
-              <div class="pm-progress">
-                <div class="progress-bar" 
-                     :style="{ width: (project.progress || 0) + '%' }"
-                     :class="getProgressClass(project.progress || 0)">
-                </div>
-              </div>
-            </div>
-            
-            <!-- Статистика -->
-            <div class="project-stats">
-              <div class="stat-item">
-                <i class="fas fa-tasks text-primary"></i>
-                <div class="stat-content">
-                  <div class="stat-value">{{ project.task_count || 0 }}</div>
-                  <div class="stat-label">Задач</div>
-                </div>
-              </div>
-              <div class="stat-item">
-                <i class="fas fa-check-circle text-success"></i>
-                <div class="stat-content">
-                  <div class="stat-value">{{ project.completed_task_count || 0 }}</div>
-                  <div class="stat-label">Готово</div>
-                </div>
-              </div>
-              <div class="stat-item">
-                <i class="fas fa-clock text-warning"></i>
-                <div class="stat-content">
-                  <div class="stat-value">{{ (project.task_count || 0) - (project.completed_task_count || 0) }}</div>
-                  <div class="stat-label">В работе</div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Команда -->
-            <div class="team-section" v-if="project.memberships && project.memberships.length > 0">
-              <p class="text-muted small mb-2">Команда проекта:</p>
-              <div class="team-avatars">
-                <img v-for="member in project.memberships.slice(0, 4)" 
-                     :key="member.user?.id"
-                     :src="getAvatarUrl(member.user)" 
-                     :alt="member.user?.full_name"
-                     class="pm-avatar"
-                     :title="member.user?.full_name">
-                <span v-if="project.memberships.length > 4" class="avatar-more">
-                  +{{ project.memberships.length - 4 }}
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <span class="badge rounded-pill" :class="getStatusClass(project.status)">
+                  {{ getStatusText(project.status) }}
+                </span>
+                <span class="badge rounded-pill" :class="getPriorityClass(project.priority)">
+                  {{ getPriorityText(project.priority) }}
                 </span>
               </div>
+              <h5 class="project-title mb-0">{{ project.name || 'Без названия' }}</h5>
             </div>
-            
-            <!-- Даты -->
-            <div class="project-dates" v-if="project.start_date || project.end_date">
-              <i class="fas fa-calendar-alt text-muted me-2"></i>
-              <small class="text-muted">{{ formatDateRange(project.start_date, project.end_date) }}</small>
+
+            <div class="project-body">
+              <p class="project-description">{{ project.description || 'Нет описания' }}</p>
+
+              <!-- Прогресс -->
+              <div class="progress-section">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="text-muted small">Прогресс выполнения</span>
+                  <span class="progress-value">{{ project.progress || 0 }}%</span>
+                </div>
+                <div class="pm-progress">
+                  <div class="progress-bar"
+                       :style="{ width: (project.progress || 0) + '%' }"
+                       :class="getProgressClass(project.progress || 0)">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Статистика -->
+              <div class="project-stats">
+                <div class="stat-item">
+                  <i class="fas fa-tasks text-primary"></i>
+                  <div class="stat-content">
+                    <div class="stat-value">{{ project.task_count || 0 }}</div>
+                    <div class="stat-label">Задач</div>
+                  </div>
+                </div>
+                <div class="stat-item">
+                  <i class="fas fa-check-circle text-success"></i>
+                  <div class="stat-content">
+                    <div class="stat-value">{{ project.completed_task_count || 0 }}</div>
+                    <div class="stat-label">Готово</div>
+                  </div>
+                </div>
+                <div class="stat-item">
+                  <i class="fas fa-clock text-warning"></i>
+                  <div class="stat-content">
+                    <div class="stat-value">{{ (project.task_count || 0) - (project.completed_task_count || 0) }}</div>
+                    <div class="stat-label">В работе</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Команда -->
+              <div class="team-section" v-if="project.memberships && project.memberships.length > 0">
+                <p class="text-muted small mb-2">Команда проекта:</p>
+                <div class="team-avatars">
+                  <img v-for="member in project.memberships.slice(0, 4)"
+                       :key="member.user?.id"
+                       :src="getAvatarUrl(member.user)"
+                       :alt="member.user?.full_name"
+                       class="pm-avatar"
+                       :title="member.user?.full_name" />
+                  <span v-if="project.memberships.length > 4" class="avatar-more">
+                    +{{ project.memberships.length - 4 }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Даты -->
+              <div class="project-dates" v-if="project.start_date || project.end_date">
+                <i class="fas fa-calendar-alt text-muted me-2"></i>
+                <small class="text-muted">{{ formatDateRange(project.start_date, project.end_date) }}</small>
+              </div>
             </div>
-          </div>
-          
-          <div class="project-footer">
-            <router-link :to="{ path: `/crm/project-management/project/${project.id}`, query: getProjectLinkQuery() }" 
-                         class="btn btn-open-project">
-              <i class="fas fa-eye me-2"></i>Открыть проект
-            </router-link>
-            <div v-if="managementMode" class="project-actions">
-              <button class="btn btn-edit-icon" @click="editProject(project)" title="Редактировать проект">
-                <Edit />
-              </button>
-              <button class="btn btn-delete-icon" @click="deleteProject(project)" title="Удалить проект">
-                <Trash2 />
-              </button>
+
+            <div class="project-footer">
+              <router-link :to="{ path: `/crm/project-management/project/${project.id}`, query: getProjectLinkQuery() }"
+                           class="btn btn-open-project">
+                <i class="fas fa-eye me-2"></i>Открыть проект
+              </router-link>
+              <div v-if="managementMode" class="project-actions">
+                <button class="btn btn-edit-icon" @click="editProject(project)" title="Редактировать проект">
+                  <Edit />
+                </button>
+                <button class="btn btn-delete-icon" @click="deleteProject(project)" title="Удалить проект">
+                  <Trash2 />
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </div> <!-- ⬅️ закрываем .row g-4 -->
+    </div> <!-- ⬅️ закрываем v-else -->
 
     <!-- Пагинация -->
     <nav v-if="pagination.total_pages > 1" class="mt-5">
       <ul class="pagination pagination-modern justify-content-center">
         <li class="page-item" :class="{ disabled: !pagination.previous }">
-          <button class="page-link" @click="changePage(pagination.current_page - 1)" 
+          <button class="page-link" @click="changePage(pagination.current_page - 1)"
                   :disabled="!pagination.previous">
             <i class="fas fa-chevron-left"></i>
           </button>
         </li>
-        
-        <li class="page-item" 
-            v-for="page in getPageNumbers()" 
+
+        <li class="page-item"
+            v-for="page in getPageNumbers()"
             :key="page"
             :class="{ active: page === pagination.current_page }">
           <button class="page-link" @click="changePage(page)">{{ page }}</button>
         </li>
-        
+
         <li class="page-item" :class="{ disabled: !pagination.next }">
-          <button class="page-link" @click="changePage(pagination.current_page + 1)" 
+          <button class="page-link" @click="changePage(pagination.current_page + 1)"
                   :disabled="!pagination.next">
             <i class="fas fa-chevron-right"></i>
           </button>
@@ -234,7 +238,7 @@
             <form @submit.prevent="submitProject">
               <div class="mb-4">
                 <label class="form-label fw-bold">Название проекта <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" v-model="currentProject.name" required 
+                <input type="text" class="form-control" v-model="currentProject.name" required
                        placeholder="Введите название проекта">
               </div>
               <div class="mb-4">
@@ -309,6 +313,7 @@
 
 <script>
 import { Modal } from 'bootstrap'
+import Dropdown from 'bootstrap/js/dist/dropdown'
 import { Edit, Trash2 } from 'lucide-vue-next'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
@@ -317,15 +322,9 @@ import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 
 export default {
   name: 'ProjectsList',
-  components: {
-    Edit,
-    Trash2
-  },
+  components: { Edit, Trash2 },
   props: {
-    managementMode: {
-      type: Boolean,
-      default: false
-    }
+    managementMode: { type: Boolean, default: false }
   },
   setup() {
     const { showSuccess, showError, showConfirmDialog, closeConfirmDialog } = useNotifications()
@@ -335,32 +334,14 @@ export default {
     return {
       projects: [],
       loading: false,
-      filters: {
-        search: '',
-        status: '',
-        priority: '',
-        ordering: '-created_at'
-      },
-      pagination: {
-        current_page: 1,
-        total_pages: 1,
-        previous: null,
-        next: null,
-        count: 0
-      },
+      filters: { search: '', status: '', priority: '', ordering: '-created_at' },
+      pagination: { current_page: 1, total_pages: 1, previous: null, next: null, count: 0 },
       currentProject: {
-        name: '',
-        description: '',
-        start_date: '',
-        end_date: '',
-        status: 'planning',
-        priority: 'medium',
-        color: '#007bff',
-        organization_id: null
+        name: '', description: '', start_date: '', end_date: '',
+        status: 'planning', priority: 'medium', color: '#007bff', organization_id: null
       },
       isEditing: false,
       searchTimeout: null,
-      // Динамические данные для статусов и приоритетов
       projectStatuses: [],
       projectPriorities: [],
       loadingStatuses: false,
@@ -370,12 +351,10 @@ export default {
       isBulkActionLoading: false
     }
   },
-  
   async mounted() {
     this.loadProjects()
     this.loadStatusesAndPriorities()
   },
-  
   computed: {
     debouncedSearch() {
       return () => {
@@ -390,18 +369,10 @@ export default {
       return this.projects.length > 0 && this.selectedItems.length === this.projects.length
     }
   },
-  
   methods: {
-    toggleSelectAll(event) {
-      if (event.target.checked) {
-        this.selectedItems = this.projects.map(p => p.id)
-      } else {
-        this.selectedItems = []
-      }
-    },
-    clearSelection() {
-      this.selectedItems = []
-    },
+    toggleSelectAll(e) { this.selectedItems = e.target.checked ? this.projects.map(p => p.id) : [] },
+    clearSelection() { this.selectedItems = [] },
+
     async confirmBulkDelete() {
       if (!this.selectedItems.length) return
       if (!confirm('Удалить выбранные проекты?')) return
@@ -411,13 +382,12 @@ export default {
         this.showSuccess('Проекты удалены')
         await this.loadProjects()
         this.clearSelection()
-      } catch (error) {
-        console.error('Ошибка массового удаления проектов:', error)
+      } catch (e) {
+        console.error('Ошибка массового удаления проектов:', e)
         this.showError('Не удалось удалить проекты')
-      } finally {
-        this.isBulkActionLoading = false
-      }
+      } finally { this.isBulkActionLoading = false }
     },
+
     async bulkChangeStatus(status) {
       if (!this.selectedItems.length) return
       this.isBulkActionLoading = true
@@ -426,82 +396,56 @@ export default {
         this.showSuccess('Статус проектов обновлен')
         await this.loadProjects()
         this.clearSelection()
-      } catch (error) {
-        console.error('Ошибка массового обновления проектов:', error)
+      } catch (e) {
+        console.error('Ошибка массового обновления проектов:', e)
         this.showError('Не удалось обновить проекты')
-      } finally {
-        this.isBulkActionLoading = false
-      }
+      } finally { this.isBulkActionLoading = false }
     },
+
     async loadProjects() {
       this.loading = true
       try {
-        const params = {
-          page: this.pagination.current_page,
-          page_size: 12,
-          ...this.filters
-        }
-        
-        // Убираем пустые фильтры
-        Object.keys(params).forEach(key => {
-          if (params[key] === '' || params[key] === false) {
-            delete params[key]
-          }
-        })
-        
-        const response = await projectManagementApi.getProjects(params)
-        
-        if (response.data.results) {
-          this.projects = response.data.results
+        const params = { page: this.pagination.current_page, page_size: 12, ...this.filters }
+        Object.keys(params).forEach(k => { if (params[k] === '' || params[k] === false) delete params[k] })
+        const res = await projectManagementApi.getProjects(params)
+        if (res.data.results) {
+          this.projects = res.data.results
           this.pagination = {
-            current_page: response.data.current_page || 1,
-            total_pages: response.data.total_pages || 1,
-            previous: response.data.previous,
-            next: response.data.next,
-            count: response.data.count || 0
+            current_page: res.data.current_page || 1,
+            total_pages: res.data.total_pages || 1,
+            previous: res.data.previous, next: res.data.next,
+            count: res.data.count || 0
           }
         } else {
-          this.projects = Array.isArray(response.data) ? response.data : []
+          this.projects = Array.isArray(res.data) ? res.data : []
         }
         this.selectedItems = []
-      } catch (error) {
-        console.error('Ошибка загрузки проектов:', error)
+      } catch (e) {
+        console.error('Ошибка загрузки проектов:', e)
         this.projects = []
-      } finally {
-        this.loading = false
-      }
+      } finally { this.loading = false }
     },
 
     async loadStatusesAndPriorities() {
       try {
         this.loadingStatuses = true
-        const [statusesResponse, prioritiesResponse] = await Promise.all([
+        const [st, pr] = await Promise.all([
           projectManagementApi.getProjectStatuses(),
           projectManagementApi.getProjectPriorities()
         ])
-        
-        // Обрабатываем ответ - может быть массив или объект с results
-        this.projectStatuses = Array.isArray(statusesResponse.data) ? 
-          statusesResponse.data.filter(s => s.is_active) : 
-          (statusesResponse.data.results || []).filter(s => s.is_active)
-          
-        this.projectPriorities = Array.isArray(prioritiesResponse.data) ? 
-          prioritiesResponse.data.filter(p => p.is_active) : 
-          (prioritiesResponse.data.results || []).filter(p => p.is_active)
-        
-        // Устанавливаем значения по умолчанию если есть
-        const defaultStatus = this.projectStatuses.find(s => s.is_default)
-        const defaultPriority = this.projectPriorities.find(p => p.is_default)
-        
-        if (defaultStatus && !this.isEditing) {
-          this.currentProject.status = defaultStatus.code
-        }
-        if (defaultPriority && !this.isEditing) {
-          this.currentProject.priority = defaultPriority.code
-        }
-      } catch (error) {
-        console.error('Ошибка загрузки статусов и приоритетов:', error)
-        // Fallback к жестко заданным значениям
+        this.projectStatuses = Array.isArray(st.data)
+          ? st.data.filter(s => s.is_active)
+          : (st.data.results || []).filter(s => s.is_active)
+        this.projectPriorities = Array.isArray(pr.data)
+          ? pr.data.filter(p => p.is_active)
+          : (pr.data.results || []).filter(p => p.is_active)
+
+        const defS = this.projectStatuses.find(s => s.is_default)
+        const defP = this.projectPriorities.find(p => p.is_default)
+        if (defS && !this.isEditing) this.currentProject.status = defS.code
+        if (defP && !this.isEditing) this.currentProject.priority = defP.code
+      } catch (e) {
+        console.error('Ошибка загрузки статусов и приоритетов:', e)
         this.projectStatuses = [
           { id: 1, name: 'Планирование', code: 'planning' },
           { id: 2, name: 'Активный', code: 'active' },
@@ -515,26 +459,20 @@ export default {
           { id: 3, name: 'Высокий', code: 'high' },
           { id: 4, name: 'Срочный', code: 'urgent' }
         ]
-      } finally {
-        this.loadingStatuses = false
-      }
+      } finally { this.loadingStatuses = false }
     },
 
     async loadOrganizations() {
       this.loadingOrganizations = true
       try {
         const res = await OrganizationApi.getMyOrganizations()
-        const data = Array.isArray(res.data?.results)
-          ? res.data.results
-          : (Array.isArray(res.data) ? res.data : [])
+        const data = Array.isArray(res.data?.results) ? res.data.results : (Array.isArray(res.data) ? res.data : [])
         this.organizations = data
       } catch (e) {
         console.error('Ошибка загрузки организаций:', e)
         alert(e?.response?.data?.detail || 'Ошибка')
         this.organizations = []
-      } finally {
-        this.loadingOrganizations = false
-      }
+      } finally { this.loadingOrganizations = false }
     },
 
     changePage(page) {
@@ -544,46 +482,27 @@ export default {
       }
     },
 
-    // Публичный метод для обновления статусов и приоритетов
-    async refreshStatusesAndPriorities() {
-      await this.loadStatusesAndPriorities()
-      console.log('Статусы и приоритеты проектов обновлены:', this.projectStatuses.length, this.projectPriorities.length)
-    },
-    
+    async refreshStatusesAndPriorities() { await this.loadStatusesAndPriorities() },
+
     getPageNumbers() {
       const pages = []
-      const current = this.pagination.current_page
-      const total = this.pagination.total_pages
-      
-      for (let i = Math.max(1, current - 2); i <= Math.min(total, current + 2); i++) {
-        pages.push(i)
-      }
-      
+      for (let i = Math.max(1, this.pagination.current_page - 2);
+           i <= Math.min(this.pagination.total_pages, this.pagination.current_page + 2); i++) pages.push(i)
       return pages
     },
-    
+
     async createProject() {
       this.isEditing = false
-
-      // Обновляем статусы и приоритеты перед созданием проекта
       await this.refreshStatusesAndPriorities()
       await this.loadOrganizations()
-
-      // Устанавливаем значения по умолчанию из загруженных данных
-      const defaultStatus = this.projectStatuses.find(s => s.is_default) || this.projectStatuses[0]
-      const defaultPriority = this.projectPriorities.find(p => p.is_default) || this.projectPriorities[0]
-
+      const defS = this.projectStatuses.find(s => s.is_default) || this.projectStatuses[0]
+      const defP = this.projectPriorities.find(p => p.is_default) || this.projectPriorities[0]
       this.currentProject = {
-        name: '',
-        description: '',
-        start_date: '',
-        end_date: '',
-        status: defaultStatus ? defaultStatus.code : 'planning',
-        priority: defaultPriority ? defaultPriority.code : 'medium',
-        color: '#007bff',
-        organization_id: null
+        name: '', description: '', start_date: '', end_date: '',
+        status: defS ? defS.code : 'planning',
+        priority: defP ? defP.code : 'medium',
+        color: '#007bff', organization_id: null
       }
-
       const modal = new Modal(document.getElementById('projectModal'))
       modal.show()
     },
@@ -602,143 +521,77 @@ export default {
         color: project.color,
         organization_id: project.organization?.id ?? null
       }
-
       const modal = new Modal(document.getElementById('projectModal'))
       modal.show()
     },
-    
+
     async submitProject() {
       try {
-        // Подготавливаем данные проекта
-        const projectData = {
+        const payload = {
           ...this.currentProject,
-          // Конвертируем пустые строки в null для дат
           start_date: this.currentProject.start_date || null,
           end_date: this.currentProject.end_date || null,
           organization_id: this.currentProject.organization_id ?? null
         }
-        
-        if (this.isEditing) {
-          await projectManagementApi.updateProject(projectData.id, projectData)
-        } else {
-          await projectManagementApi.createProject(projectData)
-        }
-        
-        // Закрываем модальное окно
-        const modal = Modal.getInstance(document.getElementById('projectModal'))
-        modal.hide()
-        
-        // Перезагружаем список
+        if (this.isEditing) await projectManagementApi.updateProject(payload.id, payload)
+        else await projectManagementApi.createProject(payload)
+
+        Modal.getInstance(document.getElementById('projectModal')).hide()
         this.loadProjects()
-        
         this.showSuccess(this.isEditing ? 'Проект обновлен' : 'Проект создан')
-      } catch (error) {
-        console.error('Ошибка сохранения проекта:', error)
+      } catch (e) {
+        console.error('Ошибка сохранения проекта:', e)
         this.showError('Ошибка сохранения проекта')
       }
     },
-    
-    deleteProject(project) {
-      this.currentProject = project
-      this.confirmDeleteProject()
-    },
-    
+
+    deleteProject(project) { this.currentProject = project; this.confirmDeleteProject() },
+
     async confirmDeleteProject() {
       const confirmed = await this.showConfirmDialog({
         title: 'Удаление проекта',
         message: `Вы уверены, что хотите удалить проект "${this.currentProject.name}"?`,
-        confirmText: 'Удалить',
-        cancelText: 'Отмена',
-        variant: 'danger'
+        confirmText: 'Удалить', cancelText: 'Отмена', variant: 'danger'
       })
-      
-      if (confirmed) {
-        try {
-          await projectManagementApi.deleteProject(this.currentProject.id)
-          
-          // Закрываем модальное окно если открыто
-          const modal = Modal.getInstance(document.getElementById('projectModal'))
-          if (modal) modal.hide()
-          
-          this.closeConfirmDialog()
-          
-          // Перезагружаем список
-          this.loadProjects()
-          
-          this.showSuccess('Проект удален')
-        } catch (error) {
-          console.error('Ошибка удаления проекта:', error)
-          this.closeConfirmDialog()
-          this.showError('Ошибка удаления проекта')
-        }
+      if (!confirmed) return
+      try {
+        await projectManagementApi.deleteProject(this.currentProject.id)
+        const modal = Modal.getInstance(document.getElementById('projectModal'))
+        if (modal) modal.hide()
+        this.closeConfirmDialog()
+        this.loadProjects()
+        this.showSuccess('Проект удален')
+      } catch (e) {
+        console.error('Ошибка удаления проекта:', e)
+        this.closeConfirmDialog()
+        this.showError('Ошибка удаления проекта')
       }
-    },
-    
-    getStatusClass(status) {
-      const classes = {
-        'planning': 'bg-secondary',
-        'active': 'bg-success',
-        'on_hold': 'bg-warning text-dark',
-        'completed': 'bg-primary',
-        'cancelled': 'bg-danger'
-      }
-      return classes[status] || 'bg-secondary'
-    },
-    
-    getStatusText(status) {
-      const statusObj = this.projectStatuses.find(s => s.code === status)
-      return statusObj ? statusObj.name : status
-    },
-    
-    getPriorityClass(priority) {
-      const classes = {
-        'low': 'bg-light text-dark',
-        'medium': 'bg-info',
-        'high': 'bg-warning text-dark',
-        'urgent': 'bg-danger'
-      }
-      return classes[priority] || 'bg-light text-dark'
-    },
-    
-    getPriorityText(priority) {
-      const priorityObj = this.projectPriorities.find(p => p.code === priority)
-      return priorityObj ? priorityObj.name : priority
-    },
-    
-    getProgressClass(progress) {
-      if (progress >= 80) return 'bg-success'
-      if (progress >= 50) return 'bg-warning'
-      return 'bg-danger'
-    },
-    
-    formatDateRange(startDate, endDate) {
-      const formatDate = (date) => {
-        if (!date) return null
-        return new Date(date).toLocaleDateString('ru-RU')
-      }
-      
-      const start = formatDate(startDate)
-      const end = formatDate(endDate)
-      
-      if (start && end) return `${start} - ${end}`
-      if (start) return `с ${start}`
-      if (end) return `до ${end}`
-      return 'Даты не указаны'
-    },
-    
-    getAvatarUrl(user) {
-      // Используем локальную утилиту для генерации аватаров
-      return getAvatarUrl(user, 32)
     },
 
-    getProjectLinkQuery() {
-      // Если компонент используется в режиме управления, передаем from=management
-      if (this.managementMode) {
-        return { from: 'management' }
-      }
-      // Иначе не передаем query параметры (для "Мои проекты")
-      return {}
-    }
+    getStatusClass(s) {
+      const map = { planning: 'bg-secondary', active: 'bg-success', on_hold: 'bg-warning text-dark', completed: 'bg-primary', cancelled: 'bg-danger' }
+      return map[s] || 'bg-secondary'
+    },
+    getStatusText(s) { return (this.projectStatuses.find(x => x.code === s) || {}).name || s },
+    getPriorityClass(p) {
+      const map = { low: 'bg-light text-dark', medium: 'bg-info', high: 'bg-warning text-dark', urgent: 'bg-danger' }
+      return map[p] || 'bg-light text-dark'
+    },
+    getPriorityText(p) { return (this.projectPriorities.find(x => x.code === p) || {}).name || p },
+    getProgressClass(p) { if (p >= 80) return 'bg-success'; if (p >= 50) return 'bg-warning'; return 'bg-danger' },
+
+    formatDateRange(start, end) {
+      const fmt = d => (d ? new Date(d).toLocaleDateString('ru-RU') : null)
+      const s = fmt(start), e = fmt(end)
+      if (s && e) return `${s} - ${e}`
+      if (s) return `с ${s}`
+      if (e) return `до ${e}`
+      return 'Даты не указаны'
+    },
+
+    getAvatarUrl(user) { return getAvatarUrl(user, 32) },
+
+    getProjectLinkQuery() { return this.managementMode ? { from: 'management' } : {} }
   }
 }
 </script>
@@ -767,12 +620,12 @@ export default {
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  
+
   .project-header {
     padding: 1.5rem;
     background: var(--bs-light);
     border-left: 4px solid;
-    
+
     .project-title {
       font-size: $font-size-h3;
       font-weight: $font-weight-bold;
@@ -780,13 +633,13 @@ export default {
       margin-bottom: 0;
     }
   }
-  
+
   .project-body {
     padding: 1.5rem;
     flex: 1;
     display: flex;
     flex-direction: column;
-    
+
     .project-description {
       font-size: $font-size-small;
       color: var(--bs-secondary-color);
@@ -797,15 +650,15 @@ export default {
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
-    
+
     .progress-section {
       margin-bottom: 1.5rem;
-      
+
       .progress-value {
         font-weight: $font-weight-bold;
         color: var(--bs-primary);
       }
-      
+
       // Дополнительные стили для прогресс-бара
       .pm-progress {
         height: 6px;
@@ -813,25 +666,25 @@ export default {
         border-radius: 3px;
         overflow: hidden;
         position: relative;
-        
+
         .progress-bar {
           height: 100%;
           transition: width 0.3s ease;
           border-radius: 3px;
           position: relative;
-          
+
           &.bg-success {
             background-color: #28a745 !important;
           }
-          
+
           &.bg-warning {
             background-color: #ffc107 !important;
           }
-          
+
           &.bg-danger {
             background-color: #dc3545 !important;
           }
-          
+
           // Если класс не установлен, используем primary цвет
           &:not(.bg-success):not(.bg-warning):not(.bg-danger) {
             background-color: #007bff !important;
@@ -839,7 +692,7 @@ export default {
         }
       }
     }
-    
+
     .project-stats {
       display: flex;
       justify-content: space-around;
@@ -847,25 +700,25 @@ export default {
       margin-bottom: 1.5rem;
       border-top: 1px solid var(--bs-border-color);
       border-bottom: 1px solid var(--bs-border-color);
-      
+
       .stat-item {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        
+
         i {
           font-size: 1.25rem;
         }
-        
+
         .stat-content {
           text-align: left;
-          
+
           .stat-value {
             font-size: 1.25rem;
             font-weight: $font-weight-bold;
             line-height: 1;
           }
-          
+
           .stat-label {
             font-size: $font-size-micro;
             color: var(--bs-secondary-color);
@@ -873,14 +726,14 @@ export default {
         }
       }
     }
-    
+
     .team-section {
       margin-bottom: 1rem;
-      
+
       .team-avatars {
         display: flex;
         align-items: center;
-        
+
         .avatar-more {
           display: inline-flex;
           align-items: center;
@@ -897,14 +750,14 @@ export default {
         }
       }
     }
-    
+
     .project-dates {
       margin-top: auto;
       font-size: $font-size-small;
       color: var(--bs-secondary-color);
     }
   }
-  
+
   .project-footer {
     padding: 1rem 1.5rem;
     background: var(--bs-gray-100);
@@ -912,12 +765,12 @@ export default {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    
+
     .project-actions {
       display: flex;
       gap: 0.5rem;
     }
-    
+
     // Кнопка "Открыть проект" - прямоугольная с закругленными концами
     .btn-open-project {
       display: inline-flex;
@@ -932,7 +785,7 @@ export default {
       text-decoration: none;
       transition: all 0.3s ease;
       box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
-      
+
       &:hover {
         background: #c82333;
         color: white;
@@ -940,17 +793,17 @@ export default {
         box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
         text-decoration: none;
       }
-      
+
       &:active {
         transform: translateY(0);
         box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
       }
-      
+
       i {
         color: white;
         transition: transform 0.3s ease;
       }
-      
+
       &:hover i {
         transform: translateX(2px);
       }
@@ -970,16 +823,16 @@ export default {
 .pagination-modern {
   .page-item {
     margin: 0 2px;
-    
+
     &:first-child .page-link {
       border-radius: $radius-small 0 0 $radius-small;
     }
-    
+
     &:last-child .page-link {
       border-radius: 0 $radius-small $radius-small 0;
     }
   }
-  
+
   .page-link {
     border: none;
     background: white;
@@ -988,24 +841,24 @@ export default {
     font-weight: $font-weight-bold;
     box-shadow: $pm-card-shadow;
     transition: all $pm-transition;
-    
+
     &:hover {
       background: var(--bs-primary);
       color: white;
       transform: translateY(-2px);
       box-shadow: $pm-card-hover-shadow;
     }
-    
+
     &:focus {
       box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
     }
   }
-  
+
   .page-item.active .page-link {
     background: var(--bs-primary);
     color: white;
   }
-  
+
   .page-item.disabled .page-link {
     background: var(--bs-gray-200);
     opacity: 0.5;
@@ -1022,7 +875,7 @@ export default {
 .modal-header {
   background: var(--bs-light);
   padding: 1.5rem;
-  
+
   .modal-title {
     font-size: $font-size-h3;
     font-weight: $font-weight-bold;
@@ -1040,7 +893,7 @@ export default {
 .form-select {
   border-radius: $radius-small;
   border-color: var(--bs-border-color);
-  
+
   &:focus {
     border-color: var(--bs-primary);
     box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
@@ -1059,22 +912,22 @@ export default {
   .projects-list {
     padding: 1rem;
   }
-  
+
   .pm-page-header {
     flex-direction: column;
     gap: 1rem;
-    
+
     h2 {
       font-size: $font-size-h2;
     }
   }
-  
+
   .project-card {
     .project-stats {
       .stat-item {
         flex-direction: column;
         text-align: center;
-        
+
         .stat-content {
           text-align: center;
         }
@@ -1082,4 +935,4 @@ export default {
     }
   }
 }
-</style> 
+</style>
