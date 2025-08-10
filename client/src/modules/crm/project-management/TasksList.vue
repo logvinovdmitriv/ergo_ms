@@ -102,26 +102,27 @@
     </div>
 
     <div v-else>
-      <div v-if="selectedItems.length" class="mb-3 d-flex align-items-center gap-2">
-        <div class="dropdown">
-          <button class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown">
-            Массовые действия
-          </button>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="#" @click.prevent="confirmBulkDelete">Удалить</a></li>
-            <li class="dropend">
-              <a class="dropdown-item dropdown-toggle" href="#" data-bs-toggle="dropdown">Изменить статус</a>
-              <ul class="dropdown-menu">
-                <li v-for="status in taskStatuses" :key="status.code">
-                  <a class="dropdown-item" href="#" @click.prevent="bulkChangeStatus(status.code)">{{ status.name }}</a>
-                </li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-        <button class="btn btn-outline-secondary" @click="clearSelection">Отменить выбор</button>
-        <div v-if="isBulkActionLoading" class="spinner-border spinner-border-sm text-primary" role="status"></div>
-      </div>
+      <BulkActionsBar
+        entity="task"
+        :visible="selectedItems.length > 0"
+        :selectedCount="selectedItems.length"
+        :loading="bulkLoading"
+        :statuses="taskStatuses"
+        :priorities="taskPriorities"
+        :users="users"
+        :projects="projects"
+        :loadingDictionaries="loadingStatuses"
+        :loadingUsers="false"
+        :loadingProjects="false"
+        @change-status="bulkChangeStatus"
+        @change-priority="bulkChangePriority"
+        @assign-user="bulkAssignUser"
+        @clear-assignee="bulkClearAssignee"
+        @change-due-date="bulkChangeDueDate"
+        @move-to-project="bulkMoveToProject"
+        @delete-selected="bulkDeleteTasks"
+        @clear-selection="clearSelection"
+      />
       <!-- Табличный вид -->
       <div class="tasks-table-wrapper">
         <div class="table-responsive">
@@ -527,13 +528,15 @@ import projectManagementApi from '@/modules/crm/project-management/js/projectMan
 import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
+import BulkActionsBar from './components/BulkActionsBar.vue'
 
 export default {
   name: 'TasksList',
   components: {
     Edit,
     Trash2,
-    Plus
+    Plus,
+    BulkActionsBar
   },
   props: {
     managementMode: {
@@ -588,7 +591,7 @@ export default {
       loadingStatuses: false,
       loadingUsers: false,
       selectedItems: [],
-      isBulkActionLoading: false
+      bulkLoading: false
     }
   },
 
@@ -644,39 +647,65 @@ export default {
         this.selectedItems = []
       }
     },
-    clearSelection() {
-      this.selectedItems = []
-    },
-    async confirmBulkDelete() {
+    clearSelection() { this.selectedItems = [] },
+
+    async bulkGuard(action, fn) {
       if (!this.selectedItems.length) return
-      if (!confirm('Удалить выбранные задачи?')) return
-      this.isBulkActionLoading = true
+      this.bulkLoading = true
       try {
-        await projectManagementApi.bulkDeleteTasks(this.selectedItems)
-        this.showSuccess('Задачи удалены')
+        await fn()
+        this.showSuccess(action + ' выполнено')
         await this.loadTasks()
         this.clearSelection()
-      } catch (error) {
-        console.error('Ошибка массового удаления задач:', error)
-        this.showError('Не удалось удалить задачи')
+      } catch (e) {
+        console.error('Bulk error:', e)
+        this.showError('Не удалось выполнить: ' + action)
       } finally {
-        this.isBulkActionLoading = false
+        this.bulkLoading = false
       }
     },
-    async bulkChangeStatus(status) {
-      if (!this.selectedItems.length) return
-      this.isBulkActionLoading = true
-      try {
-        await projectManagementApi.bulkUpdateTasks({ ids: this.selectedItems, status })
-        this.showSuccess('Статус задач обновлен')
-        await this.loadTasks()
-        this.clearSelection()
-      } catch (error) {
-        console.error('Ошибка массового обновления задач:', error)
-        this.showError('Не удалось обновить задачи')
-      } finally {
-        this.isBulkActionLoading = false
-      }
+
+    bulkChangeStatus(code) {
+      this.bulkGuard('Изменение статуса', () =>
+        projectManagementApi.bulkUpdateTasks({ ids: this.selectedItems, status: code })
+      )
+    },
+
+    bulkChangePriority(code) {
+      this.bulkGuard('Изменение приоритета', () =>
+        projectManagementApi.bulkUpdateTasks({ ids: this.selectedItems, priority: code })
+      )
+    },
+
+    bulkAssignUser(userId) {
+      this.bulkGuard('Назначение исполнителя', () =>
+        projectManagementApi.bulkUpdateTasks({ ids: this.selectedItems, assignee_id: userId })
+      )
+    },
+
+    bulkClearAssignee() {
+      this.bulkGuard('Снятие исполнителя', () =>
+        projectManagementApi.bulkUpdateTasks({ ids: this.selectedItems, assignee_id: null, clear_assignee: true })
+      )
+    },
+
+    bulkChangeDueDate(due) {
+      this.bulkGuard('Изменение дедлайна', () =>
+        projectManagementApi.bulkUpdateTasks({ ids: this.selectedItems, due_date: due })
+      )
+    },
+
+    bulkMoveToProject(projectId) {
+      this.bulkGuard('Перенос в проект', () =>
+        projectManagementApi.bulkUpdateTasks({ ids: this.selectedItems, project_id: projectId })
+      )
+    },
+
+    bulkDeleteTasks() {
+      if (!confirm(`Удалить ${this.selectedItems.length} задач(и)?`)) return
+      this.bulkGuard('Удаление', () =>
+        projectManagementApi.bulkDeleteTasks(this.selectedItems)
+      )
     },
     async loadProjects() {
       try {
