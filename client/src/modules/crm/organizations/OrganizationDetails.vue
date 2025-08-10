@@ -12,27 +12,6 @@
           <button v-if="isParticipant" class="btn btn--sm btn--ghost" @click="onLeave">
             Выйти из организации
           </button>
-
-          <!-- Редактирование общей информации -->
-          <button
-            v-if="canInvite && !editMode"
-            class="btn btn--sm btn--secondary"
-            @click="startEdit"
-          >
-            Изменить
-          </button>
-          <div v-if="editMode" class="toolbar__edit">
-            <button class="btn btn--sm btn--primary" :disabled="saving" @click="saveInfo">
-              {{ saving ? 'Сохраняем…' : 'Сохранить' }}
-            </button>
-            <button class="btn btn--sm btn--ghost" :disabled="saving" @click="cancelEdit">
-              Отмена
-            </button>
-          </div>
-
-          <button v-if="canInvite" class="btn btn--sm btn--primary" @click="showInvite = true">
-            Пригласить
-          </button>
         </div>
       </header>
 
@@ -47,22 +26,45 @@
 
               <div class="name-stack">
                 <template v-if="!editMode">
-                  <div class="title">{{ org.name || 'Без названия' }}</div>
-                  <div class="muted" v-if="org.slug">@{{ org.slug }}</div>
+                  <div class="title">
+                    <span class="text-lg">{{ org.name || 'Без названия' }}</span>
+                  </div>
                 </template>
+
                 <template v-else>
-                  <input v-model="editForm.name" class="input input--md" placeholder="Название" />
-                  <input v-model="editForm.slug" class="input input--sm" placeholder="slug" />
+                  <input v-model="editForm.name" class="input input--md" placeholder="Название…" />
                 </template>
+
+                <div class="badges">
+                  <span class="badge" :class="(org.status || 'active') === 'active' ? 'badge--success' : 'badge--muted'">
+                    {{ org.status || 'active' }}
+                  </span>
+                  <span class="badge badge--outline">{{ myRole(org) }}</span>
+                  <span class="badge badge--neutral">{{ membersCount }} участника</span>
+                </div>
               </div>
             </div>
 
-            <div class="org-meta">
-              <span class="badge" :class="(org.status || 'active') === 'active' ? 'badge--success' : 'badge--muted'">
-                {{ org.status || 'active' }}
-              </span>
-              <span class="badge badge--outline">{{ myRole(org) }}</span>
-              <span class="badge badge--neutral">{{ org.members_count ?? members.length ?? 0 }} участника</span>
+            <div class="toolbar">
+              <button
+                v-if="!editMode && canManage"
+                class="btn btn--sm btn--secondary"
+                @click="startEdit"
+              >
+                Изменить
+              </button>
+              <div v-if="editMode" class="toolbar__edit">
+                <button class="btn btn--sm btn--primary" :disabled="saving" @click="saveInfo">
+                  {{ saving ? 'Сохраняем…' : 'Сохранить' }}
+                </button>
+                <button class="btn btn--sm btn--ghost" :disabled="saving" @click="cancelEdit">
+                  Отмена
+                </button>
+              </div>
+
+              <button v-if="canInvite" class="btn btn--sm btn--primary" @click="showInvite = true">
+                Пригласить
+              </button>
             </div>
           </div>
 
@@ -94,12 +96,12 @@
           <div v-else class="form-grid">
             <label>
               <span>Сайт</span>
-              <input v-model="editForm.website" class="input" placeholder="https://…" />
+              <input v-model="editForm.website" class="input" placeholder="https://example.com" />
             </label>
 
             <label>
               <span>Email</span>
-              <input v-model="editForm.email" class="input" placeholder="name@domain" />
+              <input v-model="editForm.email" class="input" />
             </label>
 
             <label>
@@ -114,7 +116,7 @@
 
             <label>
               <span>Часовой пояс</span>
-              <input v-model="editForm.timezone" class="input" placeholder="Europe/Moscow" />
+              <input v-model="editForm.timezone" class="input" />
             </label>
 
             <label class="col-span-2">
@@ -124,7 +126,7 @@
 
             <label class="col-span-2">
               <span>Описание</span>
-              <textarea v-model="editForm.description" class="input textarea" rows="4"></textarea>
+              <textarea v-model="editForm.description" class="input textarea" />
             </label>
 
             <label class="col-span-2">
@@ -160,16 +162,8 @@
               <span>Роль приглашённых по умолчанию</span>
               <select v-model="editForm.default_role" class="input">
                 <option value="member">member</option>
-                <option value="admin">admin</option>
                 <option value="viewer">viewer</option>
-              </select>
-            </label>
-
-            <label>
-              <span>Статус</span>
-              <select v-model="editForm.status" class="input">
-                <option value="active">active</option>
-                <option value="archived">archived</option>
+                <option value="admin">admin</option>
               </select>
             </label>
           </div>
@@ -180,38 +174,35 @@
     <!-- Участники -->
     <section class="card">
       <header class="card__header">
-        <h2 class="card__title">Участники</h2>
-        <div class="toolbar" v-if="canInvite">
-          <button class="btn btn--sm btn--primary" @click="showInvite = true">Пригласить</button>
-        </div>
+        <h3 class="card__title">Участники</h3>
       </header>
-
       <div class="card__body">
-        <div v-if="loadingMembers"><div class="skeleton skeleton--row"></div></div>
-
-        <div v-else class="table-wrap">
-          <table class="table table--compact">
+        <div class="table-wrap">
+          <table class="table table--hover">
             <thead>
               <tr>
-                <th>Пользователь</th>
+                <th>Участник</th>
                 <th>Роль</th>
                 <th>Статус</th>
                 <th class="col-actions" v-if="canManage">Действия</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in members" :key="m.user?.id || m.id">
+              <tr v-for="m in members" :key="m.user?.id">
                 <td>
                   <div class="cell-main">
-                    <div class="avatar">{{ initials(m.user) }}</div>
-                    <div>
-                      <div class="title">{{ m.user?.full_name || m.user?.username || m.user?.email || 'Пользователь' }}</div>
+                    <div class="avatar avatar--sm">
+                      <div class="avatar avatar--placeholder">{{ initials(m.user) }}</div>
+                    </div>
+                    <div class="cell-main__text">
+                      <div class="title">{{ m.user?.full_name || m.user?.username || '—' }}</div>
                       <div class="muted">{{ m.user?.email || '—' }}</div>
                     </div>
                   </div>
                 </td>
                 <td>
-                  <template v-if="canChangeRole(m)">
+                  <!-- селект убран для самого себя -->
+                  <template v-if="canChangeRole(m) && toStr(m.user?.id) !== uid">
                     <select v-model="m.role" class="input input--sm" @change="changeRole(m)">
                       <option v-for="r in memberRoles" :key="r" :value="r">{{ r }}</option>
                     </select>
@@ -239,38 +230,27 @@
       </div>
     </section>
 
-    <!-- Проекты организации -->
+    <!-- Проекты -->
     <section class="card">
       <header class="card__header">
-        <h2 class="card__title">Проекты организации</h2>
+        <h3 class="card__title">Проекты</h3>
       </header>
       <div class="card__body">
         <div v-if="loadingProjects"><div class="skeleton skeleton--row"></div></div>
-
-        <div v-else-if="projects.length === 0" class="empty">
-          <p class="muted">Проектов пока нет.</p>
-          <router-link class="btn btn--sm btn--primary" to="/crm/project-management/my-projects">К проектам</router-link>
-        </div>
-
-        <div v-else class="table-wrap">
-          <table class="table table--compact">
-            <thead><tr><th>Название</th><th class="hide-sm">Статус</th></tr></thead>
-            <tbody>
-              <tr v-for="p in projects" :key="p.id">
-                <td>{{ p.name }}</td>
-                <td class="hide-sm"><span class="badge badge--outline">{{ p.status || 'active' }}</span></td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-else>
+          <ul>
+            <li v-for="p in projects" :key="p.id">{{ p.name }}</li>
+            <li v-if="projects.length === 0" class="muted">Проектов пока нет</li>
+          </ul>
         </div>
       </div>
     </section>
 
-    <!-- Модалка приглашения -->
+    <!-- invite modal -->
     <OrganizationInviteModal
       v-if="showInvite"
-      :org="org"
-      :loading="inviting"
+      :org-id="id"
+      :inviting="inviting"
       @close="showInvite = false"
       @submit="onInviteSubmit"
     />
@@ -279,7 +259,8 @@
 
 <script>
 import { ref, computed, onMounted, watch } from 'vue';
-import { useStore } from 'vuex';
+import { useUserStore } from '@/modules/cms/js/userStore.js';
+import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import OrganizationApi from './js/organizationApi.js';
 import OrganizationInviteModal from './components/OrganizationInviteModal.vue';
@@ -288,7 +269,8 @@ export default {
   name: 'OrganizationDetails',
   components: { OrganizationInviteModal },
   setup() {
-    const store = useStore();
+    const userStore = useUserStore();
+    const { user, profile } = storeToRefs(userStore);
     const route = useRoute();
     const router = useRouter();
     const id = Number(route.params.id);
@@ -338,7 +320,7 @@ export default {
 
     // ====== ПРАВА (как в списке) ======
     const toStr = v => (v == null ? null : String(v));
-    const uid = computed(() => toStr(store.state?.auth?.user?.id));
+    const uid = computed(() => toStr(user.value?.id ?? profile.value?.id));
     const ownerIdFromOrg = computed(() => toStr(org.value?.owner?.id ?? org.value?.owner_id));
 
     const isOwner = computed(() =>
@@ -360,7 +342,7 @@ export default {
     const myRole = (o) =>
       (o?.my_role) ||
       (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
-      
+
     const memberRoles = computed(() =>
       isOwner.value ? ['owner', 'admin', 'member', 'viewer'] : ['admin', 'member', 'viewer']
     );
@@ -456,8 +438,8 @@ export default {
       saving.value = true;
       try {
         await OrganizationApi.updateOrganization(id, sanitizePatch(editForm.value));
-        editMode.value = false;
         await loadOrg();
+        editMode.value = false;
       } catch (e) {
         alert(e?.response?.data?.detail || 'Ошибка сохранения');
       } finally {
@@ -470,18 +452,26 @@ export default {
       if (!editMode.value) editForm.value = { ...val };
     }, { deep: true });
 
+    const membersCount = computed(() =>
+      org.value?.members_count ?? members.value?.length ?? 0
+    );
+
     onMounted(async () => {
       await Promise.all([loadOrg(), loadMembers(), loadProjects()]);
       editForm.value = { ...org.value };
     });
 
     return {
+      id,
+
       org, members, projects,
       loadingOrg, loadingMembers, loadingProjects,
       showInvite, inviting, onInviteSubmit,
 
       // права
-      myRole, canInvite, canManage, isOwner, isParticipant,
+      uid, toStr,
+      isParticipant, isOwner, isAdmin, canInvite, canManage, myRole,
+      membersCount,
 
       // members
       initials, removeMember, changeRole, memberRoles, canChangeRole,
@@ -513,25 +503,12 @@ export default {
   .form-grid {
     display:grid;
     grid-template-columns: 200px 1fr;
-    gap: 12px 14px;
-    align-items:center;
+    gap: 12px 16px;
+    align-items:start;
   }
-  .form-grid > label { display:contents; }
-  .form-grid > label > span {
-    grid-column: 1 / 2;
-    color: var(--muted, #9ca3af);
-    font-size: 0.9rem;
-  }
-  .form-grid > label > .input,
-  .form-grid > label > .textarea,
-  .form-grid > label > select {
-    grid-column: 2 / -1;
-    width: 100%;
-  }
-  .form-grid .col-span-2 { grid-column: 1 / -1; display:grid; grid-template-columns: 200px 1fr; gap: 12px 14px; }
-  .form-grid .col-span-2 > span { grid-column: 1 / 2; }
-  .form-grid .col-span-2 > .input,
-  .form-grid .col-span-2 > .textarea,
+  .form-grid > label { display:grid; grid-template-columns: 200px 1fr; gap: 8px; align-items:center; }
+  .form-grid .col-span-2 { grid-column: 1 / -1; display:grid; grid-template-columns: 200px 1fr; gap: 8px; }
+  .form-grid .col-span-2 > textarea { grid-column: 2 / -1; min-height: 140px; }
   .form-grid .col-span-2 > select { grid-column: 2 / -1; }
 
   @media (max-width: 768px) {
@@ -541,7 +518,7 @@ export default {
   }
 }
 
-.input { width: 100%; padding: 8px 10px; border: 1px solid #3b3f46; border-radius: 6px; background: transparent; color: inherit; }
+.input { width: 100%; padding: 8px 10px; border: 1px solid #3b3f3f; border-radius: 6px; background: transparent; color: inherit; }
 .input--sm { padding: 6px 8px; }
 .input--md { padding: 8px 10px; }
 .textarea { min-height: 110px; resize: vertical; }

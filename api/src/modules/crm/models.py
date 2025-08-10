@@ -148,7 +148,13 @@ class Organization(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            base_slug = slugify(self.name) or "org"
+            slug = base_slug
+            counter = 1
+            while Organization.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
         super().save(*args, **kwargs)
 
 
@@ -229,7 +235,7 @@ class OrganizationInvite(models.Model):
 
     def __str__(self):
         return f"{self.email} -> {self.organization.name}"
-      
+
 class Project(models.Model):
     """Общий проект (не стратегический)"""
     PROJECT_STATUS_CHOICES = [
