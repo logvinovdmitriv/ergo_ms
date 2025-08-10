@@ -397,6 +397,16 @@
                 </div>
               </div>
               <div class="mb-3">
+                <label class="form-label">Организация</label>
+                <select class="form-select" v-model="currentProject.organization_id" :disabled="loadingOrganizations">
+                  <option :value="null">—</option>
+                  <option v-if="loadingOrganizations">Загрузка...</option>
+                  <option v-else v-for="org in organizations" :key="org.id" :value="org.id">
+                    {{ org.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="mb-3">
                 <label class="form-label">Цвет проекта</label>
                 <input type="color" class="form-control form-control-color" v-model="currentProject.color">
               </div>
@@ -434,7 +444,7 @@
                 <div class="col-md-4">
                   <div class="mb-3">
                     <label class="form-label">Исполнитель</label>
-                    <select class="form-select" v-model="currentTask.assignee_id">
+                    <select class="form-select" v-model="currentTask.assignee_id" :disabled="loadingUsers">
                       <option value="">Не назначен</option>
                       <option v-for="user in users" :key="user.id" :value="user.id">
                         {{ getUserDisplayName(user) }}
@@ -665,7 +675,8 @@ export default {
         end_date: '',
         status: 'planning',
         priority: 'medium',
-        color: '#007bff'
+        color: '#007bff',
+        organization_id: null
       },
       isEditingTask: false,
       isEditingProject: false,
@@ -675,6 +686,9 @@ export default {
       taskStatuses: [],
       taskPriorities: [],
       loadingStatuses: false,
+      organizations: [],
+      loadingOrganizations: false,
+      loadingUsers: false,
       // Управление командой проекта
       selectedUserId: '',
       selectedRole: 'member',
@@ -868,6 +882,7 @@ export default {
     },
 
     async loadUsers() {
+      this.loadingUsers = true
       try {
         if (this.project?.organization?.id) {
           const resp = await OrganizationApi.getOrganizationMembers(this.project.organization.id)
@@ -881,7 +896,27 @@ export default {
         }
       } catch (error) {
         console.error('Ошибка загрузки пользователей:', error)
+        alert(error?.response?.data?.detail || 'Ошибка')
         this.users = []
+      } finally {
+        this.loadingUsers = false
+      }
+    },
+
+    async loadOrganizations() {
+      this.loadingOrganizations = true
+      try {
+        const res = await OrganizationApi.getMyOrganizations()
+        const data = Array.isArray(res.data?.results)
+          ? res.data.results
+          : (Array.isArray(res.data) ? res.data : [])
+        this.organizations = data
+      } catch (e) {
+        console.error('Ошибка загрузки организаций:', e)
+        alert(e?.response?.data?.detail || 'Ошибка')
+        this.organizations = []
+      } finally {
+        this.loadingOrganizations = false
       }
     },
 
@@ -944,10 +979,11 @@ export default {
       }
     },
 
-    editProject() {
+    async editProject() {
       if (!this.project) return
-      
+
       this.isEditingProject = true
+      await this.loadOrganizations()
       this.currentProject = {
         id: this.project.id,
         name: this.project.name,
@@ -956,15 +992,18 @@ export default {
         end_date: this.project.end_date || '',
         status: this.project.status,
         priority: this.project.priority,
-        color: this.project.color
+        color: this.project.color,
+        organization_id: this.project.organization?.id ?? null
       }
-      
+
       const modal = new Modal(document.getElementById('projectModal'))
       modal.show()
     },
 
-    createTask(parentTask = null) {
+    async createTask(parentTask = null) {
       if (!this.project) return
+
+      await this.loadUsers()
 
       // Устанавливаем значения по умолчанию из загруженных данных
       const defaultTaskStatus = this.taskStatuses.find(s => s.is_default) || this.taskStatuses[0]
@@ -992,8 +1031,9 @@ export default {
       this.createTask(task)
     },
 
-    editTask(task) {
+    async editTask(task) {
       this.isEditingTask = true
+      await this.loadUsers()
       this.currentTask = {
         id: task.id,
         title: task.title,
@@ -1023,7 +1063,8 @@ export default {
           ...this.currentProject,
           // Конвертируем пустые строки в null для дат
           start_date: this.currentProject.start_date || null,
-          end_date: this.currentProject.end_date || null
+          end_date: this.currentProject.end_date || null,
+          organization_id: this.currentProject.organization_id ?? null
         }
         
         await projectManagementApi.updateProject(projectData.id, projectData)

@@ -48,7 +48,7 @@
           </div>
           <div class="col-lg-2 col-md-3">
             <label class="form-label">Исполнитель</label>
-            <select class="form-select" v-model="filters.assignee" @change="onAssigneeChange">
+            <select class="form-select" v-model="filters.assignee" @change="onAssigneeChange" :disabled="loadingUsers">
               <option value="">Все исполнители</option>
               <option v-for="user in users" :key="user.id" :value="user.id">
                 {{ user.full_name || user.username }}
@@ -257,7 +257,7 @@
               <div class="row g-3 mb-4">
                 <div class="col-md-6">
                   <label class="form-label fw-bold">Исполнитель</label>
-                  <select class="form-select" v-model="currentTask.assignee_id">
+                  <select class="form-select" v-model="currentTask.assignee_id" :disabled="loadingUsers">
                     <option value="">Не назначен</option>
                     <option v-for="user in users" :key="user.id" :value="user.id">
                       {{ user.full_name || `${user.first_name} ${user.last_name}`.trim() || user.username }}
@@ -563,7 +563,8 @@ export default {
       // Динамические данные для статусов и приоритетов
       taskStatuses: [],
       taskPriorities: [],
-      loadingStatuses: false
+      loadingStatuses: false,
+      loadingUsers: false
     }
   },
   
@@ -592,6 +593,10 @@ export default {
   watch: {
     'currentTask.project_id'(val) {
       this.loadUsersForProject(val)
+    },
+    'filters.project'(val) {
+      this.filters.assignee = ''
+      this.loadUsersForProject(val)
     }
   },
 
@@ -608,17 +613,22 @@ export default {
     },
     
     async loadAllUsers() {
+      this.loadingUsers = true
       try {
         const response = await projectManagementApi.getUsers()
         this.users = Array.isArray(response.data.results) ? response.data.results :
                      (Array.isArray(response.data) ? response.data : [])
       } catch (error) {
         console.error('Ошибка загрузки пользователей:', error)
+        alert(error?.response?.data?.detail || 'Ошибка')
         this.users = []
+      } finally {
+        this.loadingUsers = false
       }
     },
 
     async loadUsersForProject(projectId) {
+      this.loadingUsers = true
       try {
         if (projectId) {
           const proj = this.projects.find(p => p.id === projectId)
@@ -635,6 +645,8 @@ export default {
         console.error('Ошибка загрузки пользователей:', error)
         alert(error?.response?.data?.detail || 'Ошибка')
         this.users = []
+      } finally {
+        this.loadingUsers = false
       }
     },
     
