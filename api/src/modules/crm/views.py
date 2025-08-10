@@ -74,32 +74,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         org = self.get_object()
-        # только владелец может удалять организацию
+        # удалить организацию может только владелец
         if org.owner_id != request.user.id:
             return Response({'detail': 'Недостаточно прав'}, status=status.HTTP_403_FORBIDDEN)
-
-        new_owner_id = request.data.get('new_owner_id')
-        if not new_owner_id:
-            return Response({'detail': 'Необходимо указать new_owner_id'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            new_owner = User.objects.get(id=new_owner_id)
-        except User.DoesNotExist:
-            return Response({'detail': 'Пользователь не найден'}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            OrganizationMember.objects.get(organization=org, user=new_owner, status='accepted')
-        except OrganizationMember.DoesNotExist:
-            return Response({'detail': 'Пользователь должен быть участником организации со статусом accepted.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        with transaction.atomic():
-            OrganizationMember.objects.update_or_create(
-                organization=org, user=new_owner,
-                defaults={'role': 'owner', 'status': 'accepted'}
-            )
-            OrganizationMember.objects.filter(organization=org, user=request.user).delete()
-
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'])
@@ -157,13 +134,28 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         if request.method == 'PATCH':
+            if str(member.user_id) == str(request.user.id):
+                return Response({'error': 'cannot change own role'}, status=status.HTTP_400_BAD_REQUEST)
             role = request.data.get('role')
             status_val = request.data.get('status')
             updated = False
 
             if role is not None:
-                if role not in dict(OrganizationMember.ROLE_CHOICES) or role == 'owner':
+                if role not in dict(OrganizationMember.ROLE_CHOICES):
                     return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+                if role == 'owner':
+                    if organization.owner_id != request.user.id:
+                        return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+                    with transaction.atomic():
+                        organization.owner = member.user
+                        organization.save(update_fields=['owner'])
+                        OrganizationMember.objects.filter(
+                            organization=organization,
+                            user=request.user
+                        ).update(role='admin')
+                        member.role = 'owner'
+                        member.save(update_fields=['role'])
+                    return Response(OrganizationMemberSerializer(member).data)
                 member.role = role
                 updated = True
 

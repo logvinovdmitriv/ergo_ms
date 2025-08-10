@@ -9,6 +9,9 @@
           <button v-if="canManage" class="btn btn--sm btn--danger btn--ghost" @click="onDelete">
             Удалить организацию
           </button>
+          <button v-if="isParticipant" class="btn btn--sm btn--ghost" @click="onLeave">
+            Выйти из организации
+          </button>
 
           <!-- Редактирование общей информации -->
           <button
@@ -208,20 +211,15 @@
                   </div>
                 </td>
                 <td>
-                  <template v-if="canManage">
-                    <select v-model="m.role" class="input input--sm" @change="changeRole(m)" :disabled="m.role === 'owner'">
+                  <template v-if="canChangeRole(m)">
+                    <select v-model="m.role" class="input input--sm" @change="changeRole(m)">
                       <option v-for="r in memberRoles" :key="r" :value="r">{{ r }}</option>
                     </select>
                   </template>
                   <span v-else class="badge badge--outline">{{ m.role || 'member' }}</span>
                 </td>
                 <td>
-                  <template v-if="canManage">
-                    <select v-model="m.status" class="input input--sm" @change="changeStatus(m)">
-                      <option v-for="s in memberStatuses" :key="s" :value="s">{{ s }}</option>
-                    </select>
-                  </template>
-                  <span v-else class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
+                  <span class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
                     {{ m.status || 'pending' }}
                   </span>
                 </td>
@@ -297,6 +295,8 @@ export default {
 
     const org = ref({});
     const members = ref([]);
+    const myMember = ref(null);
+    const isParticipant = ref(false);
     const projects = ref([]);
 
     const loadingOrg = ref(false);
@@ -324,6 +324,7 @@ export default {
       try {
         const resp = await OrganizationApi.getOrganizationMembers(id);
         members.value = resp?.data || [];
+        updateMyMember();
       } finally { loadingMembers.value = false; }
     };
 
@@ -344,25 +345,35 @@ export default {
       org.value?.my_role === 'owner' || (uid.value && ownerIdFromOrg.value === uid.value)
     );
 
-    const myMember = computed(() => members.value.find(m => toStr(m.user?.id) === uid.value));
     const isAdminFromMembers = computed(() => ['admin', 'owner'].includes(myMember.value?.role));
     const isAdmin = computed(() => org.value?.my_role === 'admin' || isAdminFromMembers.value);
 
     const canInvite = computed(() => isOwner.value || isAdmin.value);
     const canManage = canInvite;
 
+    function updateMyMember() {
+      myMember.value = members.value.find(m => toStr(m.user?.id) === uid.value) || null;
+      isParticipant.value = !!myMember.value;
+    }
+    watch([members, uid], updateMyMember, { immediate: true });
+
     const myRole = (o) =>
       (o?.my_role) ||
       (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
       
-    const memberRoles = ['admin', 'member', 'viewer'];
+    const memberRoles = computed(() =>
+      isOwner.value ? ['owner', 'admin', 'member', 'viewer'] : ['admin', 'member', 'viewer']
+    );
+
+    const canChangeRole = (m) =>
+      (isOwner.value || isAdmin.value) && toStr(m.user?.id) !== uid.value && m.role !== 'owner';
 
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
 
     const changeRole = async (m) => {
       try {
         await OrganizationApi.updateOrganizationMember(id, m.user.id, { role: m.role });
-        await loadMembers();
+        await Promise.all([loadMembers(), loadOrg()]);
       } catch (e) {
         alert(e?.response?.data?.detail || 'Ошибка изменения роли');
       }
@@ -392,14 +403,26 @@ export default {
     };
 
     const onDelete = async () => {
-      const newOwnerId = prompt('ID нового владельца');
-      if (!newOwnerId) return;
       if (!confirm('Удалить организацию? Это действие нельзя отменить.')) return;
       try {
-        await OrganizationApi.deleteOrganization(id, newOwnerId);
+        await OrganizationApi.deleteOrganization(id);
         router.push({ name: 'OrganizationList' });
       } catch (e) {
         alert(e?.response?.data?.detail || 'Ошибка удаления');
+      }
+    };
+
+    const onLeave = async () => {
+      if (isOwner.value) {
+        alert('Вы владелец организации. Сначала передайте статус владельца.');
+        return;
+      }
+      if (!confirm('Выйти из организации?')) return;
+      try {
+        await OrganizationApi.leaveOrganization(id);
+        router.push({ name: 'OrganizationList' });
+      } catch (e) {
+        alert(e?.response?.data?.detail || 'Ошибка выхода');
       }
     };
 
@@ -458,13 +481,13 @@ export default {
       showInvite, inviting, onInviteSubmit,
 
       // права
-      myRole, canInvite, canManage, isOwner,
+      myRole, canInvite, canManage, isOwner, isParticipant,
 
       // members
-      initials, removeMember, changeRole, memberRoles,
+      initials, removeMember, changeRole, memberRoles, canChangeRole,
 
-      // удаление
-      onDelete,
+      // действия
+      onDelete, onLeave,
 
       // edit
       editMode, startEdit, cancelEdit, saveInfo, saving, editForm
