@@ -236,14 +236,44 @@
         <h3 class="card__title">Проекты</h3>
       </header>
       <div class="card__body">
-        <div v-if="loadingProjects"><div class="skeleton skeleton--row"></div></div>
-        <div v-else>
-          <ul>
-            <li v-for="p in projects" :key="p.id">
-              <router-link :to="{ name: 'ProjectDetail', params: { id: p.id } }">{{ p.name }}</router-link>
-            </li>
-            <li v-if="projects.length === 0" class="muted">Проектов пока нет</li>
-          </ul>
+        <div v-if="loadingProjects" class="text-center py-3">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Загрузка...</span>
+          </div>
+        </div>
+        <div v-else-if="projects.length === 0" class="text-center text-muted py-3">
+          Проектов пока нет
+        </div>
+        <div v-else class="list-group">
+          <router-link
+            v-for="p in projects"
+            :key="p.id"
+            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+            :to="`/crm/project-management/project/${p.id}`"
+          >
+            <div class="me-3">
+              <div class="fw-bold">{{ p.name }}</div>
+              <div class="small text-muted">
+                <span v-if="p.organization">Орг: {{ p.organization.name }}</span>
+                <span v-else>Орг: —</span>
+                ·
+                <span>Нач: {{ formatDate(p.start_date) }}</span>
+                ·
+                <span>Кон: {{ formatDate(p.end_date) }}</span>
+              </div>
+              <div class="small text-muted" v-if="p.tasks_count || p.task_count">
+                {{ p.tasks_count || p.task_count }} задач
+              </div>
+            </div>
+            <div class="text-end">
+              <span class="badge rounded-pill me-2" :class="getProjectStatusClass(p.status)">
+                {{ humanProjectStatus(p.status) }}
+              </span>
+              <span class="badge rounded-pill" :class="getPriorityClass(p.priority)">
+                {{ humanPriority(p.priority) }}
+              </span>
+            </div>
+          </router-link>
         </div>
       </div>
     </section>
@@ -254,14 +284,55 @@
         <h3 class="card__title">Задачи</h3>
       </header>
       <div class="card__body">
-        <div v-if="loadingTasks"><div class="skeleton skeleton--row"></div></div>
-        <div v-else>
-          <ul>
-            <li v-for="t in tasks" :key="t.id">
-              <router-link :to="{ name: 'TaskDetail', params: { id: t.id } }">{{ t.title }}</router-link>
-            </li>
-            <li v-if="tasks.length === 0" class="muted">Задач пока нет</li>
-          </ul>
+        <div v-if="loadingTasks" class="text-center py-3">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Загрузка...</span>
+          </div>
+        </div>
+        <div v-else-if="tasks.length === 0" class="text-center text-muted py-3">
+          Задач пока нет
+        </div>
+        <div v-else class="list-group">
+          <router-link
+            v-for="t in tasks"
+            :key="t.id"
+            class="list-group-item list-group-item-action"
+            :to="taskLink(t)"
+          >
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="me-3">
+                <div class="fw-bold">{{ t.title || 'Без названия' }}</div>
+                <div class="small text-muted d-flex align-items-center flex-wrap">
+                  <span v-if="t.project">Проект: {{ t.project.name }}</span>
+                  <span v-else>Без проекта</span>
+                  <span class="mx-1">·</span>
+                  <span v-if="t.assignee" class="d-flex align-items-center">
+                    <img
+                      :src="getAvatarUrl(t.assignee, 24)"
+                      alt=""
+                      class="rounded-circle me-1"
+                      style="width:24px;height:24px;"
+                    />
+                    {{ t.assignee.full_name || t.assignee.username }}
+                  </span>
+                  <span v-else>Исполнитель: —</span>
+                </div>
+              </div>
+              <div class="text-end">
+                <div class="mb-1">
+                  <span class="badge rounded-pill me-2" :class="getTaskStatusClass(t.status)">
+                    {{ humanTaskStatus(t.status) }}
+                  </span>
+                  <span class="badge rounded-pill" :class="getPriorityClass(t.priority)">
+                    {{ humanPriority(t.priority) }}
+                  </span>
+                </div>
+                <div class="small" :class="dueClass(t.due_date, t.status)">
+                  <i class="fas fa-clock me-1"></i>{{ formatDate(t.due_date) }}
+                </div>
+              </div>
+            </div>
+          </router-link>
         </div>
       </div>
     </section>
@@ -284,6 +355,7 @@ import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import OrganizationApi from './js/organizationApi.js';
 import OrganizationInviteModal from './components/OrganizationInviteModal.vue';
+import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js';
 
 export default {
   name: 'OrganizationDetails',
@@ -347,6 +419,84 @@ export default {
         tasks.value = resp?.data?.results || resp?.data || [];
       } finally { loadingTasks.value = false; }
     };
+
+    // ====== Хелперы ======
+    const formatDate = (date) => {
+      if (!date) return '—';
+      return new Date(date).toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    };
+
+    const projectStatusClasses = {
+      planning: 'bg-secondary',
+      active: 'bg-success',
+      on_hold: 'bg-warning text-dark',
+      completed: 'bg-primary',
+      cancelled: 'bg-danger'
+    };
+
+    const projectStatusTexts = {
+      planning: 'Планирование',
+      active: 'Активный',
+      on_hold: 'На паузе',
+      completed: 'Завершен',
+      cancelled: 'Отменен'
+    };
+
+    const taskStatusClasses = {
+      todo: 'bg-secondary',
+      in_progress: 'bg-info',
+      review: 'bg-warning text-dark',
+      done: 'bg-success',
+      cancelled: 'bg-danger'
+    };
+
+    const taskStatusTexts = {
+      todo: 'К выполнению',
+      in_progress: 'В работе',
+      review: 'На проверке',
+      done: 'Готово',
+      cancelled: 'Отменена'
+    };
+
+    const priorityClasses = {
+      low: 'bg-light text-dark',
+      medium: 'bg-info',
+      high: 'bg-warning text-dark',
+      urgent: 'bg-danger'
+    };
+
+    const priorityTexts = {
+      low: 'Низкий',
+      medium: 'Средний',
+      high: 'Высокий',
+      urgent: 'Срочный'
+    };
+
+    const getProjectStatusClass = (s) => projectStatusClasses[s] || 'bg-secondary';
+    const getTaskStatusClass = (s) => taskStatusClasses[s] || 'bg-secondary';
+    const getPriorityClass = (p) => priorityClasses[p] || 'bg-light text-dark';
+    const humanProjectStatus = (s) => projectStatusTexts[s] || s;
+    const humanTaskStatus = (s) => taskStatusTexts[s] || s;
+    const humanPriority = (p) => priorityTexts[p] || p;
+
+    const dueClass = (due, status) => {
+      if (!due) return 'text-muted';
+      if (status === 'done') return 'text-muted';
+      const now = new Date();
+      const d = new Date(due);
+      if (d < now) return 'text-danger fw-bold';
+      if (d - now < 24 * 60 * 60 * 1000) return 'text-warning fw-bold';
+      return 'text-muted';
+    };
+
+    const taskLink = (task) => ({
+      path: '/crm/project-management',
+      query: { tab: 'tasks', open: task.id }
+    });
 
     // ====== ПРАВА (как в списке) ======
     const toStr = v => (v == null ? null : String(v));
@@ -511,6 +661,18 @@ export default {
 
       // edit
       editMode, startEdit, cancelEdit, saveInfo, saving, editForm
+      ,
+      // helpers
+      formatDate,
+      getProjectStatusClass,
+      getTaskStatusClass,
+      getPriorityClass,
+      humanProjectStatus,
+      humanTaskStatus,
+      humanPriority,
+      dueClass,
+      taskLink,
+      getAvatarUrl
     };
   }
 };
