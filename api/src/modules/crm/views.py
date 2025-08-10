@@ -158,10 +158,25 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         if request.method == 'PATCH':
             role = request.data.get('role')
-            if role not in dict(OrganizationMember.ROLE_CHOICES) or role == 'owner':
-                return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
-            member.role = role
-            member.save()
+            status_val = request.data.get('status')
+            updated = False
+
+            if role is not None:
+                if role not in dict(OrganizationMember.ROLE_CHOICES) or role == 'owner':
+                    return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+                member.role = role
+                updated = True
+
+            if status_val is not None:
+                if status_val not in dict(OrganizationMember.STATUS_CHOICES):
+                    return Response({'error': 'invalid status'}, status=status.HTTP_400_BAD_REQUEST)
+                member.status = status_val
+                member.responded_at = timezone.now()
+                updated = True
+
+            if updated:
+                member.save()
+
             return Response(OrganizationMemberSerializer(member).data)
 
         if member.role == 'owner':

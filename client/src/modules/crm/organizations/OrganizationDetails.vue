@@ -216,7 +216,12 @@
                   <span v-else class="badge badge--outline">{{ m.role || 'member' }}</span>
                 </td>
                 <td>
-                  <span class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
+                  <template v-if="canManage">
+                    <select v-model="m.status" class="input input--sm" @change="changeStatus(m)">
+                      <option v-for="s in memberStatuses" :key="s" :value="s">{{ s }}</option>
+                    </select>
+                  </template>
+                  <span v-else class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
                     {{ m.status || 'pending' }}
                   </span>
                 </td>
@@ -349,7 +354,7 @@ export default {
     const myRole = (o) =>
       (o?.my_role) ||
       (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
-
+      
     const memberRoles = ['admin', 'member', 'viewer'];
 
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
