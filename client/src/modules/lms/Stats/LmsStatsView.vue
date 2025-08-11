@@ -21,6 +21,9 @@
     <StatsSummary v-if="data" :summary="data.summary" :role="role" class="mb-4" />
 
     <div v-if="role === 'student' && data">
+      <AchievementsSummary :summary="data.achievements.summary" :filters="filters" />
+      <AchievementsRecent :items="data.achievements.recent" :filters="filters" />
+      <AchievementsNext :items="data.achievements.next" :filters="filters" />
       <div class="row">
         <div class="col-lg-8">
           <GradeTrendChart :data="data.grade_trend" />
@@ -29,11 +32,11 @@
           <DeadlinesList :deadlines="data.upcoming_deadlines" />
         </div>
       </div>
-      <AchievementsProgress class="mt-3" :achievements="data.achievements_progress" />
       <Recommendations class="mt-3" :items="data.recommendations" />
     </div>
 
     <div v-else-if="role === 'teacher' && data">
+      <AchievementsTeacherBoard :data="data.achievements_teacher" :filters="filters" class="mb-3" />
       <CoursesTable :courses="data.courses" class="mb-3" />
       <div class="row">
         <div class="col-lg-6">
@@ -54,7 +57,10 @@ import { useUserRole } from '../composables/useUserRole'
 import StatsSummary from './components/StatsSummary.vue'
 import GradeTrendChart from './components/GradeTrendChart.vue'
 import DeadlinesList from './components/DeadlinesList.vue'
-import AchievementsProgress from './components/AchievementsProgress.vue'
+import AchievementsSummary from './components/AchievementsSummary.vue'
+import AchievementsRecent from './components/AchievementsRecent.vue'
+import AchievementsNext from './components/AchievementsNext.vue'
+import AchievementsTeacherBoard from './components/AchievementsTeacherBoard.vue'
 import CoursesTable from './components/CoursesTable.vue'
 import GradeDistributionChart from './components/GradeDistributionChart.vue'
 import AtRiskList from './components/AtRiskList.vue'

@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.http import HttpResponse
 from datetime import timedelta
 from django.db import models
+from django.contrib.auth.models import User
 from src.core.utils.mixins import SwaggerSafeMixin
 
 from .base_views import (
@@ -1374,6 +1375,43 @@ class AnalyticsViewSet(viewsets.ViewSet):
         if user_id != request.user.id and not (request.user.is_staff or getattr(request.user, 'is_teacher', False)):
             return Response({"detail": "Forbidden"}, status=403)
         data = analytics.get_achievements_progress(user_id)
+        return Response(data)
+
+    @action(detail=False, methods=['get'], url_path='achievements/summary')
+    def achievements_summary(self, request):
+        date_from = request.query_params.get('from')
+        date_to = request.query_params.get('to')
+        course_id = request.query_params.get('course')
+        target_user_id = request.query_params.get('user')
+
+        target_user = request.user
+        if target_user_id:
+            if not (request.user.is_staff or getattr(request.user, 'is_teacher', False)):
+                return Response({"detail": "Forbidden"}, status=403)
+            try:
+                target_user = User.objects.get(id=target_user_id)
+            except User.DoesNotExist:
+                return Response({}, status=404)
+
+        if request.user.is_staff or getattr(request.user, 'is_teacher', False):
+            if target_user_id and target_user_id != str(request.user.id):
+                data = analytics.get_achievements_student_summary(target_user, date_from, date_to, course_id)
+            else:
+                data = analytics.get_achievements_teacher_summary(request.user, date_from, date_to, course_id)
+        else:
+            data = analytics.get_achievements_student_summary(request.user, date_from, date_to, course_id)
+
+        return Response(data)
+
+    @action(detail=False, methods=['get'], url_path='achievements/leaderboard')
+    def achievements_leaderboard(self, request):
+        if not (request.user.is_staff or getattr(request.user, 'is_teacher', False)):
+            return Response({"detail": "Forbidden"}, status=403)
+        date_from = request.query_params.get('from')
+        date_to = request.query_params.get('to')
+        course_id = request.query_params.get('course')
+        limit = int(request.query_params.get('limit', 10))
+        data = analytics.get_achievements_leaderboard(request.user, date_from, date_to, course_id, limit)
         return Response(data)
 
     @action(detail=False, methods=['get'])

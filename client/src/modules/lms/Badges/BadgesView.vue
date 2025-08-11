@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Award, Star, Lock, CheckCircle, Filter, Users, Target, TrendingUp } from 'lucide-vue-next'
 import { apiClient } from '@/js/api/manager'
 import { endpoints } from '@/js/api/endpoints'
@@ -9,7 +10,17 @@ const badges = ref([])
 const userBadges = ref([])
 const loading = ref(true)
 const selectedCategory = ref('all')
+const focusedId = ref(null)
+const route = useRoute()
+const router = useRouter()
 const userRole = globalUserRole
+const backQuery = computed(() => {
+  const q = {}
+  if (route.query.from) q.from = route.query.from
+  if (route.query.to) q.to = route.query.to
+  if (route.query.course) q.course = route.query.course
+  return q
+})
 
 // Статистика достижений
 const badgeStats = computed(() => {
@@ -233,15 +244,45 @@ function getCategoryColor(category) {
   return colors[category] || 'secondary'
 }
 
-onMounted(() => {
-  userRole.loadUserRoles().then(() => {
-    loadBadges()
-  })
-})
+function applyQuery() {
+  if (route.query.category) {
+    selectedCategory.value = route.query.category
+  }
+  if (route.query.focus) {
+    focusedId.value = Number(route.query.focus)
+    nextTick(() => {
+      const el = document.getElementById(`badge-${focusedId.value}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setTimeout(() => { focusedId.value = null }, 2000)
+      }
+    })
+  }
+}
+
+async function init() {
+  await userRole.loadUserRoles()
+  await loadBadges()
+  applyQuery()
+}
+
+onMounted(init)
+watch(() => route.query.category, applyQuery)
+watch(() => route.query.focus, applyQuery)
 </script>
 
 <template>
   <div class="badges-view">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><router-link to="/lms/stats">LMS</router-link></li>
+          <li class="breadcrumb-item active">Достижения</li>
+        </ol>
+      </nav>
+      <router-link class="btn btn-sm btn-outline-secondary" :to="{ path: '/lms/stats', query: backQuery }">К статистике</router-link>
+    </div>
+
     <!-- Заголовок -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
@@ -386,9 +427,10 @@ onMounted(() => {
           :key="badge.id" 
           class="col-lg-4 col-md-6 mb-4"
         >
-          <div 
-            class="card badge-card h-100" 
-            :class="{ 'earned': isEarned(badge.id) }"
+          <div
+            class="card badge-card h-100"
+            :id="`badge-${badge.id}`"
+            :class="{ 'earned': isEarned(badge.id), 'is-focused': focusedId === badge.id }"
           >
             <div class="card-body text-center">
               <div class="badge-icon mb-3">
@@ -485,6 +527,9 @@ onMounted(() => {
     &.earned {
       border-color: var(--bs-success);
       background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+    }
+    &.is-focused {
+      border-color: var(--bs-primary);
     }
   }
   
