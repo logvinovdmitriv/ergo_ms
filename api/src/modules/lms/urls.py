@@ -9,7 +9,10 @@ from src.modules.lms.views import (
     CalendarEventViewSet, BadgeViewSet, UserBadgeViewSet,
     NotificationViewSet, PrivateMessageViewSet, UserRoleViewSet,
     QuestionViewSet, AnswerViewSet, LessonItemViewSet,
-    LmsStatsViewSet
+    LmsStatsViewSet,
+    StudentStatsView,
+    TeacherStatsView,
+    BadgesSummaryView,
 )
 
 # Создаем роутер для API
@@ -56,6 +59,10 @@ urlpatterns = [
     path('achievements/summary/', AnalyticsViewSet.as_view({'get': 'achievements_summary'}), name='achievements-summary'),
     path('achievements/leaderboard/', AnalyticsViewSet.as_view({'get': 'achievements_leaderboard'}), name='achievements-leaderboard'),
     path('analytics/debug-lessons/', AnalyticsViewSet.as_view({'get': 'debug_lessons'}), name='debug-lessons'),
+
+    path('stats/student/', StudentStatsView.as_view(), name='lms-stats-student'),
+    path('stats/teacher/', TeacherStatsView.as_view(), name='lms-stats-teacher'),
+    path('badges/summary/', BadgesSummaryView.as_view(), name='lms-badges-summary'),
     
     # Endpoints для профиля
     path('profile/me/', UserProfileViewSet.as_view({'get': 'my_profile', 'patch': 'my_profile'}), name='my-profile'),

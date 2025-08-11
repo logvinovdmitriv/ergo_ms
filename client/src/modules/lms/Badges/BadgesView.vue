@@ -1,11 +1,13 @@
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Award, Star, Lock, CheckCircle, Filter, Users, Target, TrendingUp } from 'lucide-vue-next'
 import { apiClient } from '@/js/api/manager'
 import { endpoints } from '@/js/api/endpoints'
 import { getOverview } from '../api/lmsStatsApi'
 import { globalUserRole } from '../composables/useUserRole'
+import { lmsApi } from '../js/lmsApi'
+import RoleSwitcher from '../components/RoleSwitcher.vue'
 
 const badges = ref([])
 const userBadges = ref([])
@@ -16,6 +18,7 @@ const route = useRoute()
 const router = useRouter()
 const userRole = globalUserRole
 const overview = ref(null)
+const summary = ref(null)
 const backQuery = computed(() => {
   const q = {}
   if (route.query.from) q.from = route.query.from
@@ -250,12 +253,24 @@ function applyQuery() {
 async function init() {
   await userRole.loadUserRoles()
   await loadBadges()
+  try {
+    const res = await lmsApi.getBadgesSummary()
+    summary.value = res.data
+  } catch (e) {
+    console.error('Ошибка загрузки сводки значков', e)
+  }
   applyQuery()
 }
 
 onMounted(init)
 watch(() => route.query.category, applyQuery)
 watch(() => route.query.focus, applyQuery)
+
+watchEffect(() => {
+  if (!userRole.isLoading.value && userRole.primaryRole.value !== 'student') {
+    router.replace({ name: 'LMSStats' })
+  }
+})
 </script>
 
 <template>
@@ -278,6 +293,41 @@ watch(() => route.query.focus, applyQuery)
           Мои достижения
         </h3>
         <p class="text-muted mb-0">Отслеживайте свой прогресс и получайте награды за успехи</p>
+      </div>
+    </div>
+
+    <div v-if="summary" class="row mb-4">
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h4 class="mb-1">{{ summary.earned_total }}</h4>
+            <p class="text-muted mb-0">Получено значков</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h4 class="mb-1">{{ summary.available_total }}</h4>
+            <p class="text-muted mb-0">Всего доступно</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h4 class="mb-1">{{ summary.progress_pct?.toFixed(1) }}%</h4>
+            <p class="text-muted mb-0">Прогресс</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h4 class="mb-1">{{ summary.categories_count }}</h4>
+            <p class="text-muted mb-0">Категорий</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -478,6 +528,7 @@ watch(() => route.query.focus, applyQuery)
       </div>
     </template>
   </div>
+  <RoleSwitcher />
 </template>
 
 <style lang="scss" scoped>

@@ -1,6 +1,6 @@
 <template>
   <div class="container-fluid py-3">
-    <div class="d-flex justify-content-end mb-3">
+    <div v-if="role === 'student'" class="d-flex justify-content-end mb-3">
       <RouterLink
         :to="{ name: 'LMSBadges', query: { category: route.query.category } }"
         class="btn btn-outline-primary"

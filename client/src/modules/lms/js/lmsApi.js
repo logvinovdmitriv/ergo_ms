@@ -135,6 +135,16 @@ export const lmsApi = {
     return apiClient.get(endpoints.lms.achievementsLeaderboard, { params })
   },
 
+  getStudentStats(params) {
+    return apiClient.get('/api/lms/stats/student', { params })
+  },
+  getTeacherStats(params) {
+    return apiClient.get('/api/lms/stats/teacher', { params })
+  },
+  getBadgesSummary(params) {
+    return apiClient.get('/api/lms/badges/summary', { params })
+  },
+
   // Статистика студента
   async getStudentStats() {
     try {
