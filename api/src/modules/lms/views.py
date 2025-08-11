@@ -4,7 +4,8 @@ from rest_framework.response import Response
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Avg, Count, Q
+from django.db.models import Avg, Count, Q, Value, CharField
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.http import HttpResponse
 from datetime import timedelta
@@ -47,6 +48,13 @@ from .serializers import (
 )
 
 from .services.statistics import get_user_overview
+from rest_framework.views import APIView
+
+
+def _norm(value):
+    if value in (None, '', 'null', 'None', 'undefined', 'all', 'ALL'):
+        return None
+    return value
 
 class UserProfileViewSet(SwaggerSafeMixin, UserOwnedViewSet):
     """ViewSet для профилей пользователей"""
@@ -1943,3 +1951,197 @@ class LmsStatsViewSet(viewsets.ViewSet):
         data = get_user_overview(request.user, category_id=category)
         serializer = UserLmsOverviewSerializer(data)
         return Response(serializer.data)
+
+
+class StudentStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    """Return aggregated statistics for a student."""
+
+    def get(self, request):
+        course = _norm(request.query_params.get('course'))
+        date_from = _norm(request.query_params.get('from'))
+        date_to = _norm(request.query_params.get('to'))
+
+        user = request.user
+        enrollments = Enrollment.objects.filter(student=user)
+        if course:
+            enrollments = enrollments.filter(subject_id=course)
+        if date_from:
+            enrollments = enrollments.filter(enrollment_date__date__gte=date_from)
+        if date_to:
+            enrollments = enrollments.filter(enrollment_date__date__lte=date_to)
+
+        topics_done = 0
+        topics_total = 0
+        tasks_available = 0
+        categories = {}
+
+        for en in enrollments.select_related('subject__category'):
+            subject = en.subject
+            category_name = subject.category.name if subject.category else 'Без категории'
+            total_topics = Theme.objects.filter(subject=subject).count()
+            topics_total += total_topics
+            done = int(total_topics * en.progress_percentage / 100.0)
+            topics_done += done
+            tasks_available += Lesson.objects.filter(theme__subject=subject).count()
+            cat_entry = categories.setdefault(category_name, {"topics_done": 0, "topics_total": 0})
+            cat_entry["topics_done"] += done
+            cat_entry["topics_total"] += total_topics
+
+        progress_pct = (topics_done / topics_total * 100) if topics_total else 0.0
+
+        categories_progress = [
+            {
+                "category": name,
+                "progress_pct": (vals["topics_done"] / vals["topics_total"] * 100) if vals["topics_total"] else 0.0,
+                "topics_done": vals["topics_done"],
+                "topics_total": vals["topics_total"],
+            }
+            for name, vals in categories.items()
+        ]
+
+        counters = {
+            "topics_completed": topics_done,
+            "tasks_available": tasks_available,
+            "progress_pct": progress_pct,
+            "categories_count": len(categories_progress),
+        }
+
+        meta = {
+            "active_courses": enrollments.filter(status='active').count(),
+            "enrolled": enrollments.count(),
+            "completion_pct": enrollments.aggregate(avg=Avg('progress_percentage'))['avg'] or 0.0,
+            "on_time_pct": 0.0,
+            "avg_grade": Grade.objects.filter(student=user).aggregate(avg=Avg('grade'))['avg'],
+            "under_review": SubmittedAssignment.objects.filter(student=user, graded_at__isnull=True).count(),
+        }
+
+        return Response({
+            "counters": counters,
+            "meta": meta,
+            "categories_progress": categories_progress,
+        })
+
+
+class TeacherStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    """Return aggregated statistics for a teacher."""
+
+    def get(self, request):
+        course = _norm(request.query_params.get('course'))
+        date_from = _norm(request.query_params.get('from'))
+        date_to = _norm(request.query_params.get('to'))
+
+        user = request.user
+        courses = Subject.objects.filter(teacher=user)
+        if course:
+            courses = courses.filter(id=course)
+        if date_from:
+            courses = courses.filter(creationdate__gte=date_from)
+        if date_to:
+            courses = courses.filter(creationdate__lte=date_to)
+
+        enrollments = Enrollment.objects.filter(subject__in=courses)
+
+        counters = {
+            "my_courses": courses.count(),
+            "students_total": enrollments.values('student').distinct().count(),
+            "avg_completion_pct": enrollments.aggregate(avg=Avg('progress_percentage'))['avg'] or 0.0,
+            "avg_grade": Grade.objects.filter(subject__in=courses).aggregate(avg=Avg('grade'))['avg'],
+            "on_time_pct": 0.0,
+            "overdue_total": 0,
+        }
+
+        by_course = []
+        for c in courses:
+            enrolls = enrollments.filter(subject=c)
+            by_course.append({
+                "course_id": c.id,
+                "course": c.name,
+                "enrolled": enrolls.count(),
+                "completion_pct": enrolls.aggregate(avg=Avg('progress_percentage'))['avg'] or 0.0,
+                "avg_grade": Grade.objects.filter(subject=c).aggregate(avg=Avg('grade'))['avg'],
+                "on_time_pct": 0.0,
+                "overdue": 0,
+            })
+
+        return Response({
+            "counters": counters,
+            "by_course": by_course,
+        })
+
+
+class BadgesSummaryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    """Return summary of badges for a student."""
+
+    def get(self, request):
+        if not request.user.roles.filter(role='student').exists():
+            return Response({}, status=403)
+
+        course = _norm(request.query_params.get('course'))
+        date_from = _norm(request.query_params.get('from'))
+        date_to = _norm(request.query_params.get('to'))
+
+        badges_qs = Badge.objects.filter(is_active=True)
+        if course:
+            badges_qs = badges_qs.filter(subject_id=course)
+
+        earned_qs = UserBadge.objects.filter(user=request.user, badge__in=badges_qs)
+        if date_from:
+            earned_qs = earned_qs.filter(awarded_at__date__gte=date_from)
+        if date_to:
+            earned_qs = earned_qs.filter(awarded_at__date__lte=date_to)
+
+        earned_total = earned_qs.count()
+        available_total = badges_qs.count()
+
+        badges_qs = badges_qs.annotate(
+            cat_name=Coalesce(
+                models.F('subject__category__name'),
+                Value('Без категории', output_field=CharField()),
+            )
+        )
+        categories = {}
+        for b in badges_qs:
+            categories.setdefault(b.cat_name, 0)
+            categories[b.cat_name] += 1
+        earned_cats = earned_qs.annotate(
+            cat_name=Coalesce(
+                models.F('badge__subject__category__name'),
+                Value('Без категории', output_field=CharField()),
+            )
+        )
+        earned_map = {}
+        for eb in earned_cats:
+            earned_map[eb.cat_name] = earned_map.get(eb.cat_name, 0) + 1
+
+        categories_progress = []
+        for name, total in categories.items():
+            earned = earned_map.get(name, 0)
+            pct = (earned / total * 100) if total else 0.0
+            categories_progress.append({
+                "category": name,
+                "progress_pct": pct,
+                "earned": earned,
+                "available": total,
+            })
+
+        latest_badges = [
+            {
+                "id": ub.badge.id,
+                "title": ub.badge.name,
+                "date": ub.awarded_at,
+            }
+            for ub in earned_qs.select_related('badge').order_by('-awarded_at')[:5]
+        ]
+
+        return Response({
+            "earned_total": earned_total,
+            "available_total": available_total,
+            "progress_pct": (earned_total / available_total * 100) if available_total else 0.0,
+            "categories_count": len(categories_progress),
+            "categories_progress": categories_progress,
+            "latest_badges": latest_badges,
+            "next_candidates": [],
+        })
