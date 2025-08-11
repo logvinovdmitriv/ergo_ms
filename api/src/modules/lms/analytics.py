@@ -109,7 +109,7 @@ def get_student_dashboard(
         )
 
     # прогресс достижений
-    achievements_progress = get_achievements_progress(user.id)
+    achievements = get_achievements_student_summary(user, date_from, date_to, course_id)
 
     # рекомендации – пока пусто
     recommendations: List[Dict[str, Any]] = []
@@ -118,7 +118,7 @@ def get_student_dashboard(
         "summary": summary,
         "grade_trend": grade_trend,
         "upcoming_deadlines": upcoming_deadlines,
-        "achievements_progress": achievements_progress,
+        "achievements": achievements,
         "recommendations": recommendations,
     }
 
@@ -214,11 +214,14 @@ def get_teacher_dashboard(
                 }
             )
 
+    achievements = get_achievements_teacher_summary(user, date_from, date_to, course_id)
+
     return {
         "summary": summary,
         "courses": course_stats,
         "grade_distribution": distribution,
         "at_risk_students": at_risk_students,
+        "achievements_teacher": achievements,
     }
 
 
@@ -229,15 +232,176 @@ def get_achievements_progress(user_id: int) -> List[Dict[str, Any]]:
     result: List[Dict[str, Any]] = []
     for badge in Badge.objects.filter(is_active=True):
         unlocked = badge.id in user_badges
+        current = 1 if unlocked else 0
+        threshold = 1
+        percent = 100 if unlocked else 0
         result.append(
             {
                 "badge_id": badge.id,
                 "title": badge.name,
                 "category": badge.badge_type,
-                "progress": 100 if unlocked else 0,
-                "next_threshold": 0 if unlocked else 1,
+                "current": current,
+                "threshold": threshold,
+                "percent": percent,
+                "progress": percent,
                 "icon": badge.image.url if badge.image else "",
                 "unlocked": unlocked,
+            }
+        )
+    return result
+
+
+# Achievements summary and leaderboard helpers
+
+def get_achievements_student_summary(
+    user: User,
+    date_from: Optional[str],
+    date_to: Optional[str],
+    course_id: Optional[int],
+) -> Dict[str, Any]:
+    today = timezone.now().date()
+    end = _parse_date(date_to, today)
+    start = _parse_date(date_from, end - timedelta(days=30))
+
+    qs = UserBadge.objects.filter(user=user, awarded_at__date__range=(start, end))
+    if course_id:
+        qs = qs.filter(badge__subject_id=course_id)
+
+    total_badges = qs.count()
+    total_points = total_badges
+
+    cat_map = dict(Badge.BADGE_TYPES)
+    by_category = [
+        {
+            "code": rec["badge__badge_type"],
+            "title": cat_map.get(rec["badge__badge_type"], rec["badge__badge_type"]),
+            "count": rec["count"],
+            "points": rec["count"],
+        }
+        for rec in qs.values("badge__badge_type").annotate(count=Count("id"))
+    ]
+
+    recent_qs = qs.select_related("badge", "badge__subject").order_by("-awarded_at")[:6]
+    recent = [
+        {
+            "id": ub.badge.id,
+            "title": ub.badge.name,
+            "icon": ub.badge.image.url if ub.badge.image else "",
+            "category": ub.badge.badge_type,
+            "awarded_at": ub.awarded_at.isoformat(),
+            "course": {
+                "id": ub.badge.subject.id if ub.badge.subject else None,
+                "name": ub.badge.subject.name if ub.badge.subject else "",
+            },
+        }
+        for ub in recent_qs
+    ]
+
+    progress_items = [i for i in get_achievements_progress(user.id) if not i["unlocked"]]
+    next_list = progress_items[:5]
+    for item in next_list:
+        item["progress"] = item["current"]
+    return {
+        "summary": {
+            "total_badges": total_badges,
+            "total_points": total_points,
+            "by_category": by_category,
+        },
+        "recent": recent,
+        "next": next_list,
+    }
+
+
+def get_achievements_teacher_summary(
+    user: User,
+    date_from: Optional[str],
+    date_to: Optional[str],
+    course_id: Optional[int],
+) -> Dict[str, Any]:
+    today = timezone.now().date()
+    end = _parse_date(date_to, today)
+    start = _parse_date(date_from, end - timedelta(days=30))
+
+    courses = Subject.objects.all()
+    if not user.is_staff:
+        courses = courses.filter(teacher=user)
+    if course_id:
+        courses = courses.filter(id=course_id)
+
+    qs = UserBadge.objects.filter(
+        badge__subject__in=courses, awarded_at__date__range=(start, end)
+    )
+
+    cat_map = dict(Badge.BADGE_TYPES)
+    awarded_by_category = [
+        {
+            "category": rec["badge__badge_type"],
+            "title": cat_map.get(rec["badge__badge_type"], rec["badge__badge_type"]),
+            "count": rec["count"],
+        }
+        for rec in qs.values("badge__badge_type").annotate(count=Count("id"))
+    ]
+
+    timeline = [
+        {
+            "date": rec["awarded_at__date"].isoformat(),
+            "count": rec["count"],
+        }
+        for rec in qs.values("awarded_at__date").annotate(count=Count("id")).order_by("awarded_at__date")
+    ]
+
+    leaderboard = get_achievements_leaderboard(user, date_from, date_to, course_id, 10)
+
+    return {
+        "awarded_by_category": awarded_by_category,
+        "awarded_timeline": timeline,
+        "leaderboard": leaderboard,
+        "almost_earned": [],
+    }
+
+
+def get_achievements_leaderboard(
+    user: User,
+    date_from: Optional[str],
+    date_to: Optional[str],
+    course_id: Optional[int],
+    limit: int,
+) -> List[Dict[str, Any]]:
+    today = timezone.now().date()
+    end = _parse_date(date_to, today)
+    start = _parse_date(date_from, end - timedelta(days=30))
+
+    courses = Subject.objects.all()
+    if not user.is_staff:
+        courses = courses.filter(teacher=user)
+    if course_id:
+        courses = courses.filter(id=course_id)
+
+    qs = UserBadge.objects.filter(
+        badge__subject__in=courses, awarded_at__date__range=(start, end)
+    )
+
+    leaderboard_qs = (
+        qs.values("user_id")
+        .annotate(points=Count("id"), badges=Count("id"), courses=Count("badge__subject", distinct=True))
+        .order_by("-points")[:limit]
+    )
+
+    users = {
+        u.id: u
+        for u in User.objects.filter(id__in=[rec["user_id"] for rec in leaderboard_qs])
+    }
+
+    result: List[Dict[str, Any]] = []
+    for rec in leaderboard_qs:
+        u = users.get(rec["user_id"])
+        result.append(
+            {
+                "user_id": rec["user_id"],
+                "full_name": u.get_full_name() or u.username if u else "",
+                "points": rec["points"],
+                "badges": rec["badges"],
+                "courses": rec["courses"],
             }
         )
     return result
@@ -390,4 +554,4 @@ class ReportsService:
             'subject': subject.name,
             'total_students': len(report),
             'students': report
-        } 
+        }

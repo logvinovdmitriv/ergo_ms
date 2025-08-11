@@ -127,6 +127,14 @@ export const lmsApi = {
     })
   },
 
+  // Достижения
+  getAchievementsSummary(params) {
+    return apiClient.get(endpoints.lms.achievementsSummary, { params })
+  },
+  getAchievementsLeaderboard(params) {
+    return apiClient.get(endpoints.lms.achievementsLeaderboard, { params })
+  },
+
   // Статистика студента
   async getStudentStats() {
     try {
