@@ -1573,3 +1573,12 @@ class LessonItemSerializer(serializers.ModelSerializer):
     def get_display_name(self, obj):
         """Возвращает отображаемое имя элемента"""
         return obj.get_display_name()
+
+
+class UserLmsOverviewSerializer(serializers.Serializer):
+    """Serializer for aggregated LMS statistics used on badges and stats pages."""
+
+    role = serializers.ChoiceField(choices=["student", "teacher", "admin"])
+    cards = serializers.DictField()
+    progress_by_category = serializers.ListField()
+    teacher_block = serializers.DictField(allow_null=True)

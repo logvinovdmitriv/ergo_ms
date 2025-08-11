@@ -42,8 +42,11 @@ from .serializers import (
     QuestionSerializer, AnswerSerializer, AssignmentSerializer,
     UserRoleSerializer, CreateLessonSerializer, UpdateLessonSerializer,
     CreateThemeSerializer, UpdateThemeSerializer, CreateTestSerializer, UpdateTestSerializer,
-    CreateQuestionSerializer, CreateAnswerSerializer, LessonItemSerializer, LessonItemReorderSerializer
+    CreateQuestionSerializer, CreateAnswerSerializer, LessonItemSerializer, LessonItemReorderSerializer,
+    UserLmsOverviewSerializer
 )
+
+from .services.statistics import get_user_overview
 
 class UserProfileViewSet(SwaggerSafeMixin, UserOwnedViewSet):
     """ViewSet для профилей пользователей"""
@@ -1929,3 +1932,14 @@ class LessonItemViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             'message': f'Миграция завершена. Создано {created_count} записей LessonItem',
             'created_count': created_count
         })
+
+
+class LmsStatsViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=["get"], url_path="overview")
+    def overview(self, request):
+        category = request.query_params.get("category")
+        data = get_user_overview(request.user, category_id=category)
+        serializer = UserLmsOverviewSerializer(data)
+        return Response(serializer.data)
