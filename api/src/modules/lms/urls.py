@@ -2,13 +2,14 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from src.modules.lms.views import (
     AnalyticsViewSet, UserProfileViewSet, CourseCategoryViewSet,
-    CourseFormatViewSet, SubjectViewSet, EnrollmentViewSet, 
-    ThemeViewSet, LessonViewSet, ResourceViewSet, ForumViewSet, ForumDiscussionViewSet, 
+    CourseFormatViewSet, SubjectViewSet, EnrollmentViewSet,
+    ThemeViewSet, LessonViewSet, ResourceViewSet, ForumViewSet, ForumDiscussionViewSet,
     ForumPostViewSet, TestBankViewSet, TestViewSet, TestAttemptViewSet,
     AssignmentViewSet, SubmittedAssignmentViewSet,
     CalendarEventViewSet, BadgeViewSet, UserBadgeViewSet,
     NotificationViewSet, PrivateMessageViewSet, UserRoleViewSet,
-    QuestionViewSet, AnswerViewSet, LessonItemViewSet
+    QuestionViewSet, AnswerViewSet, LessonItemViewSet,
+    LmsStatsViewSet
 )
 
 # Создаем роутер для API
@@ -41,6 +42,7 @@ router.register(r'user-badges', UserBadgeViewSet, basename='userbadge')
 router.register(r'notifications', NotificationViewSet, basename='notification')
 router.register(r'messages', PrivateMessageViewSet, basename='privatemessage')
 router.register(r'analytics', AnalyticsViewSet, basename='analytics')
+router.register(r'stats', LmsStatsViewSet, basename='lms-stats')
 
 urlpatterns = [
     # API endpoints

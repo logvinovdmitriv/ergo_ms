@@ -1,5 +1,47 @@
 <template>
   <div class="container-fluid py-3">
+    <div class="d-flex justify-content-end mb-3">
+      <RouterLink
+        :to="{ name: 'LMSBadges', query: { category: route.query.category } }"
+        class="btn btn-outline-primary"
+      >
+        К достижениям
+      </RouterLink>
+    </div>
+    <div v-if="overview" class="row mb-4">
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h4 class="mb-1">{{ overview.cards.topics_completed }}</h4>
+            <p class="text-muted mb-0">Пройдено тем</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h4 class="mb-1">{{ overview.cards.tasks_available }}</h4>
+            <p class="text-muted mb-0">Доступно заданий</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h4 class="mb-1">{{ overview.cards.overall_progress_percent }}%</h4>
+            <p class="text-muted mb-0">Прогресс</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-body text-center">
+            <h4 class="mb-1">{{ overview.cards.active_categories_count }}</h4>
+            <p class="text-muted mb-0">Категорий</p>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="row mb-3 g-2 align-items-end">
       <div class="col-md-3">
         <label class="form-label">От</label>
@@ -47,12 +89,27 @@
         </div>
       </div>
     </div>
+
+    <div v-if="overview && overview.teacher_block" class="card mt-4 mb-4">
+      <div class="card-header">
+        <h6 class="mb-0">Мои курсы (преподаватель)</h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-1">Созданные курсы: {{ overview.teacher_block.created_courses }}</p>
+        <p class="mb-1">Активных студентов: {{ overview.teacher_block.active_students }}</p>
+        <p class="mb-0">Средний прогресс студентов: {{ overview.teacher_block.avg_students_progress_percent }}%</p>
+      </div>
+    </div>
   </div>
+  <RoleSwitcher />
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import RoleSwitcher from '../components/RoleSwitcher.vue'
 import { lmsApi } from '../js/lmsApi'
+import { getOverview } from '../api/lmsStatsApi'
 import { useUserRole } from '../composables/useUserRole'
 import StatsSummary from './components/StatsSummary.vue'
 import GradeTrendChart from './components/GradeTrendChart.vue'
@@ -69,9 +126,11 @@ import Recommendations from './components/Recommendations.vue'
 const userRole = useUserRole()
 const role = computed(() => (userRole.isTeacher.value || userRole.isAdmin.value) ? 'teacher' : 'student')
 
+const route = useRoute()
 const filters = ref({ from: '', to: '', course: '' })
 const courses = ref([])
 const data = ref(null)
+const overview = ref(null)
 
 async function loadCourses() {
   const res = await lmsApi.getCourses()
@@ -90,6 +149,14 @@ async function loadData() {
 onMounted(async () => {
   await loadCourses()
   await loadData()
+  try {
+    const params = {}
+    if (route.query.category) params.category = route.query.category
+    const res = await getOverview(params)
+    overview.value = res.data
+  } catch (e) {
+    console.error('Ошибка загрузки обзора', e)
+  }
 })
 
 watch(filters, loadData, { deep: true })
