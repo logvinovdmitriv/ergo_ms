@@ -163,7 +163,7 @@ export default {
 
     // методы
     const isOwner = (o) =>
-      o?.my_role === 'owner' || toStr(o?.owner?.id ?? o?.owner_id) === uid.value;
+      o?.my_membership?.role === 'owner' || toStr(o?.owner?.id ?? o?.owner_id) === uid.value;
 
     async function remove(o) {
       if (!confirm(`Удалить организацию «${o.name}»?`)) return;
@@ -171,7 +171,7 @@ export default {
       await load();
     }
 
-    const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_role || '-'));
+    const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_membership?.role || '-'));
 
     const startEdit = (org) => { editingId.value = org.id; editName.value = org.name || ''; };
     const cancelEdit = () => { editingId.value = null; editName.value = ''; };
