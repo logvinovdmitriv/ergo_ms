@@ -525,6 +525,7 @@
 import { Modal } from 'bootstrap'
 import { Edit, Trash2, Plus } from 'lucide-vue-next'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
+import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
 import BulkActionsBar from './components/BulkActionsBar.vue'
@@ -736,10 +737,14 @@ export default {
       this.loadingUsers = true
       try {
         if (projectId) {
-          const resp = await projectManagementApi.getProjectAssignableUsers(projectId)
-          const members = Array.isArray(resp.data) ? resp.data : []
-          this.users = members.map(u => ({ id: u.id, full_name: u.full_name })).filter(u => u && u.id)
-          return
+          const proj = this.projects.find(p => p.id === projectId)
+          const orgId = proj?.organization?.id
+          if (orgId) {
+            const resp = await OrganizationApi.getOrganizationMembers(orgId)
+            const members = Array.isArray(resp.data.results) ? resp.data.results : (resp.data || [])
+            this.users = members.map(m => m.user || m).filter(u => u && u.id)
+            return
+          }
         }
         await this.loadAllUsers()
       } catch (error) {
