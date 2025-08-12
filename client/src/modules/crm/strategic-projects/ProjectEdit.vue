@@ -631,7 +631,7 @@ export default {
       try {
         const resp = await OrganizationApi.getOrganizations()
         const list = resp?.data?.results || resp?.data || []
-        organizations.value = list.filter(org => org?.my_role)
+        organizations.value = list.filter(org => org?.my_membership?.role)
       } catch (e) {
         console.error('Ошибка загрузки организаций:', e)
         alert(e?.response?.data?.detail || 'Ошибка')
