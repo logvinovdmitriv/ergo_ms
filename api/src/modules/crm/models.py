@@ -8,6 +8,13 @@ import secrets
 
 User = get_user_model()
 
+
+class OrgRole(models.TextChoices):
+    OWNER = 'owner', 'Owner'
+    ADMIN = 'admin', 'Admin'
+    MEMBER = 'member', 'Member'
+    OBSERVER = 'observer', 'Observer'
+
 class ProjectStatus(models.Model):
     """Статусы проектов"""
     name = models.CharField(max_length=100, verbose_name='Название статуса')
@@ -107,9 +114,9 @@ class Organization(models.Model):
         ('private', 'private'),
     ]
     ROLE_CHOICES = [
-        ('member', 'member'),
-        ('admin', 'admin'),
-        ('viewer', 'viewer'),
+        (OrgRole.MEMBER, 'member'),
+        (OrgRole.ADMIN, 'admin'),
+        (OrgRole.OBSERVER, 'observer'),
     ]
     STATUS_CHOICES = [
         ('active', 'active'),
@@ -133,7 +140,7 @@ class Organization(models.Model):
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_organizations', verbose_name='Владелец')
     members = models.ManyToManyField(User, through='OrganizationMember', related_name='organizations', through_fields=('organization', 'user'), verbose_name='Участники')
     visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='private', verbose_name='Видимость')
-    default_role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member', verbose_name='Роль по умолчанию')
+    default_role = models.CharField(max_length=16, choices=ROLE_CHOICES, default=OrgRole.MEMBER, verbose_name='Роль по умолчанию')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Статус')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
@@ -161,12 +168,7 @@ class Organization(models.Model):
 class OrganizationMember(models.Model):
     """Участник организации"""
 
-    ROLE_CHOICES = [
-        ('owner', 'owner'),
-        ('admin', 'admin'),
-        ('member', 'member'),
-        ('viewer', 'viewer'),
-    ]
+    ROLE_CHOICES = OrgRole.choices
     STATUS_CHOICES = [
         ('pending', 'pending'),
         ('accepted', 'accepted'),
@@ -176,7 +178,7 @@ class OrganizationMember(models.Model):
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='memberships')
     user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE,related_name='organization_memberships')
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member', verbose_name='Роль')
+    role = models.CharField(max_length=16, choices=ROLE_CHOICES, default=OrgRole.MEMBER, verbose_name='Роль')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='Статус')
     invited_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -196,6 +198,18 @@ class OrganizationMember(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.organization.name}"
+
+    def can_view(self) -> bool:
+        return True
+
+    def can_be_assigned(self) -> bool:
+        return self.role in {OrgRole.MEMBER, OrgRole.ADMIN, OrgRole.OWNER}
+
+    def can_manage_org(self) -> bool:
+        return self.role in {OrgRole.ADMIN, OrgRole.OWNER}
+
+    def is_owner(self) -> bool:
+        return self.role == OrgRole.OWNER
 class OrganizationInvite(models.Model):
     """Приглашение в организацию"""
 

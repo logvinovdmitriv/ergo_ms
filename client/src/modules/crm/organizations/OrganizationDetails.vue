@@ -162,7 +162,7 @@
               <span>Роль приглашённых по умолчанию</span>
               <select v-model="editForm.default_role" class="input">
                 <option value="member">member</option>
-                <option value="viewer">viewer</option>
+                <option value="observer">observer</option>
                 <option value="admin">admin</option>
               </select>
             </label>
@@ -493,25 +493,19 @@ export default {
       return 'text-muted';
     };
 
-    const taskLink = (task) => ({
-      path: '/crm/project-management',
-      query: { tab: 'tasks', open: task.id }
-    });
+    const taskLink = (task) => `/crm/project-management/task/${task.id}`;
 
     // ====== ПРАВА (как в списке) ======
     const toStr = v => (v == null ? null : String(v));
     const uid = computed(() => toStr(user.value?.id ?? profile.value?.id));
-    const ownerIdFromOrg = computed(() => toStr(org.value?.owner?.id ?? org.value?.owner_id));
 
-    const isOwner = computed(() =>
-      org.value?.my_role === 'owner' || (uid.value && ownerIdFromOrg.value === uid.value)
-    );
+    const isObserver = computed(() => org.value?.my_role === 'observer');
+    const isOwner = computed(() => org.value?.my_role === 'owner');
+    const isAdmin = computed(() => ['admin', 'owner'].includes(org.value?.my_role));
+    const isMember = computed(() => ['member', 'admin', 'owner'].includes(org.value?.my_role));
 
-    const isAdminFromMembers = computed(() => ['admin', 'owner'].includes(myMember.value?.role));
-    const isAdmin = computed(() => org.value?.my_role === 'admin' || isAdminFromMembers.value);
-
-    const canInvite = computed(() => isOwner.value || isAdmin.value);
-    const canManage = canInvite;
+    const canInvite = computed(() => isAdmin.value);
+    const canManage = computed(() => isAdmin.value);
 
     function updateMyMember() {
       myMember.value = members.value.find(m => toStr(m.user?.id) === uid.value) || null;
@@ -524,7 +518,7 @@ export default {
       (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
 
     const memberRoles = computed(() =>
-      isOwner.value ? ['owner', 'admin', 'member', 'viewer'] : ['admin', 'member', 'viewer']
+      isOwner.value ? ['owner', 'admin', 'member', 'observer'] : ['admin', 'member', 'observer']
     );
 
     const canChangeRole = (m) =>
@@ -650,7 +644,7 @@ export default {
 
       // права
       uid, toStr,
-      isParticipant, isOwner, isAdmin, canInvite, canManage, myRole,
+      isParticipant, isObserver, isMember, isOwner, isAdmin, canInvite, canManage, myRole,
       membersCount,
 
       // members
