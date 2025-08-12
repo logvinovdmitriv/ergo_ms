@@ -4,13 +4,11 @@ from rest_framework.response import Response
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Avg, Count, Q, Value, CharField
-from django.db.models.functions import Coalesce
+from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from django.http import HttpResponse
 from datetime import timedelta
 from django.db import models
-from django.contrib.auth.models import User
 from src.core.utils.mixins import SwaggerSafeMixin
 
 from .base_views import (
@@ -19,7 +17,6 @@ from .base_views import (
 )
 from .utils import get_user_accessible_subjects, get_upcoming_deadlines
 from .analytics import AnalyticsService
-from . import analytics
 from .models import (
     Student, Teacher, StudentGroup, Subject, Grade, Theme,
     Lesson, Test, TestAttempt, SubmittedAssignment, UserRole,
@@ -43,18 +40,8 @@ from .serializers import (
     QuestionSerializer, AnswerSerializer, AssignmentSerializer,
     UserRoleSerializer, CreateLessonSerializer, UpdateLessonSerializer,
     CreateThemeSerializer, UpdateThemeSerializer, CreateTestSerializer, UpdateTestSerializer,
-    CreateQuestionSerializer, CreateAnswerSerializer, LessonItemSerializer, LessonItemReorderSerializer,
-    UserLmsOverviewSerializer
+    CreateQuestionSerializer, CreateAnswerSerializer, LessonItemSerializer, LessonItemReorderSerializer
 )
-
-from .services.statistics import get_user_overview, calculate_user_stats
-from rest_framework.views import APIView
-
-
-def _norm(value):
-    if value in (None, '', 'null', 'None', 'undefined', 'all', 'ALL'):
-        return None
-    return value
 
 class UserProfileViewSet(SwaggerSafeMixin, UserOwnedViewSet):
     """ViewSet для профилей пользователей"""
@@ -1364,66 +1351,32 @@ class AnalyticsViewSet(viewsets.ViewSet):
         serializer = TeacherStatsSerializer(stats)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['get'], url_path='dashboard')
+    @action(detail=False, methods=['get'])
     def dashboard(self, request):
-        role = request.query_params.get('role')
-        date_from = request.query_params.get('from')
-        date_to = request.query_params.get('to')
-        course_id = request.query_params.get('course')
-
-        is_teacher = bool(request.user.is_staff or getattr(request.user, 'is_teacher', False))
-
-        if role == 'teacher' and is_teacher:
-            data = analytics.get_teacher_dashboard(request.user, date_from, date_to, course_id)
-        else:
-            data = analytics.get_student_dashboard(request.user, date_from, date_to, course_id)
-
-        return Response(data)
-
-    @action(detail=False, methods=['get'], url_path='achievements/progress')
-    def achievements_progress(self, request):
-        user_id = int(request.query_params.get('user') or request.user.id)
-        if user_id != request.user.id and not (request.user.is_staff or getattr(request.user, 'is_teacher', False)):
-            return Response({"detail": "Forbidden"}, status=403)
-        data = analytics.get_achievements_progress(user_id)
-        return Response(data)
-
-    @action(detail=False, methods=['get'], url_path='achievements/summary')
-    def achievements_summary(self, request):
-        date_from = request.query_params.get('from')
-        date_to = request.query_params.get('to')
-        course_id = request.query_params.get('course')
-        target_user_id = request.query_params.get('user')
-
-        target_user = request.user
-        if target_user_id:
-            if not (request.user.is_staff or getattr(request.user, 'is_teacher', False)):
-                return Response({"detail": "Forbidden"}, status=403)
-            try:
-                target_user = User.objects.get(id=target_user_id)
-            except User.DoesNotExist:
-                return Response({}, status=404)
-
-        if request.user.is_staff or getattr(request.user, 'is_teacher', False):
-            if target_user_id and target_user_id != str(request.user.id):
-                data = analytics.get_achievements_student_summary(target_user, date_from, date_to, course_id)
-            else:
-                data = analytics.get_achievements_teacher_summary(request.user, date_from, date_to, course_id)
-        else:
-            data = analytics.get_achievements_student_summary(request.user, date_from, date_to, course_id)
-
-        return Response(data)
-
-    @action(detail=False, methods=['get'], url_path='achievements/leaderboard')
-    def achievements_leaderboard(self, request):
-        if not (request.user.is_staff or getattr(request.user, 'is_teacher', False)):
-            return Response({"detail": "Forbidden"}, status=403)
-        date_from = request.query_params.get('from')
-        date_to = request.query_params.get('to')
-        course_id = request.query_params.get('course')
-        limit = int(request.query_params.get('limit', 10))
-        data = analytics.get_achievements_leaderboard(request.user, date_from, date_to, course_id, limit)
-        return Response(data)
+        """Общая информация для дашборда"""
+        user = request.user
+        
+        # Используем утилиту для получения дедлайнов
+        deadlines = get_upcoming_deadlines(user)
+        
+        # Непрочитанные уведомления
+        unread_notifications = Notification.objects.filter(
+            recipient=user, is_read=False
+        ).count()
+        
+        # Последние оценки
+        recent_grades = Grade.objects.filter(
+            student=user
+        ).order_by('-lastupdate')[:5]
+        
+        dashboard_data = {
+            'upcoming_assignments': AssignmentSerializer(deadlines['assignments'], many=True).data,
+            'upcoming_events': CalendarEventSerializer(deadlines['events'], many=True).data,
+            'unread_notifications': unread_notifications,
+            'recent_grades': GradeSerializer(recent_grades, many=True).data
+        }
+        
+        return Response(dashboard_data)
 
     @action(detail=False, methods=['get'])
     def debug_lessons(self, request):
@@ -1939,286 +1892,4 @@ class LessonItemViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         return Response({
             'message': f'Миграция завершена. Создано {created_count} записей LessonItem',
             'created_count': created_count
-        })
-
-
-class LmsStatsViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAuthenticated]
-    """Endpoint returning course progress statistics for a user."""
-
-    def _get_target_user(self, request):
-        """Return user whose stats should be returned respecting permissions."""
-
-        user = request.user
-        requested_id = request.query_params.get("user_id")
-        if requested_id and user.roles.filter(role__in=["teacher", "admin"], is_active=True).exists():
-            return User.objects.get(pk=requested_id)
-        if requested_id and not user.roles.filter(role__in=["teacher", "admin"], is_active=True).exists():
-            raise PermissionDenied("Not allowed to view other users' statistics")
-        return user
-
-    def list(self, request):
-        target = self._get_target_user(request)
-        data = calculate_user_stats(target)
-        return Response(data)
-
-    @action(detail=False, methods=["get"], url_path="overview")
-    def overview(self, request):
-        """Legacy dashboard overview used by existing front-end."""
-        category = request.query_params.get("category")
-        data = get_user_overview(request.user, category_id=category)
-        serializer = UserLmsOverviewSerializer(data)
-        return Response(serializer.data)
-
-
-class UserBadgesView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def _get_target_user(self, request):
-        user = request.user
-        requested_id = request.query_params.get("user_id")
-        if requested_id and user.roles.filter(role__in=["teacher", "admin"], is_active=True).exists():
-            return User.objects.get(pk=requested_id)
-        if requested_id and not user.roles.filter(role__in=["teacher", "admin"], is_active=True).exists():
-            raise PermissionDenied("Not allowed to view other users' badges")
-        return user
-
-    def get(self, request):
-        target = self._get_target_user(request)
-
-        badges = Badge.objects.filter(is_active=True).order_by("badge_type", "id")
-        awarded = {
-            ub.badge_id: ub
-            for ub in UserBadge.objects.filter(user=target, badge__in=badges).select_related("badge")
-        }
-
-        categories = {}
-        for badge in badges:
-            cat = badge.badge_type
-            cat_obj = categories.setdefault(
-                cat,
-                {
-                    "id": cat,
-                    "name": cat.replace("_", " ").title(),
-                    "earned_count": 0,
-                    "badges": [],
-                },
-            )
-
-            awarded_obj = awarded.get(badge.id)
-            earned = bool(awarded_obj)
-            if earned:
-                cat_obj["earned_count"] += 1
-
-            cat_obj["badges"].append(
-                {
-                    "id": badge.id,
-                    "title": badge.name,
-                    "earned": earned,
-                    "earned_at": awarded_obj.awarded_at if earned else None,
-                    "progress": None,
-                    "threshold": None,
-                }
-            )
-
-        result = []
-        for cat in categories.values():
-            next_badge = next((b for b in cat["badges"] if not b["earned"]), None)
-            cat["next_badge"] = next_badge
-            result.append(cat)
-
-        return Response(result)
-
-
-class StudentStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-    """Return aggregated statistics for a student."""
-
-    def get(self, request):
-        course = _norm(request.query_params.get('course'))
-        date_from = _norm(request.query_params.get('from'))
-        date_to = _norm(request.query_params.get('to'))
-
-        user = request.user
-        enrollments = Enrollment.objects.filter(student=user)
-        if course:
-            enrollments = enrollments.filter(subject_id=course)
-        if date_from:
-            enrollments = enrollments.filter(enrollment_date__date__gte=date_from)
-        if date_to:
-            enrollments = enrollments.filter(enrollment_date__date__lte=date_to)
-
-        topics_done = 0
-        topics_total = 0
-        tasks_available = 0
-        categories = {}
-
-        for en in enrollments.select_related('subject__category'):
-            subject = en.subject
-            category_name = subject.category.name if subject.category else 'Без категории'
-            total_topics = Theme.objects.filter(subject=subject).count()
-            topics_total += total_topics
-            done = int(total_topics * en.progress_percentage / 100.0)
-            topics_done += done
-            tasks_available += Lesson.objects.filter(theme__subject=subject).count()
-            cat_entry = categories.setdefault(category_name, {"topics_done": 0, "topics_total": 0})
-            cat_entry["topics_done"] += done
-            cat_entry["topics_total"] += total_topics
-
-        progress_pct = (topics_done / topics_total * 100) if topics_total else 0.0
-
-        categories_progress = [
-            {
-                "category": name,
-                "progress_pct": (vals["topics_done"] / vals["topics_total"] * 100) if vals["topics_total"] else 0.0,
-                "topics_done": vals["topics_done"],
-                "topics_total": vals["topics_total"],
-            }
-            for name, vals in categories.items()
-        ]
-
-        counters = {
-            "topics_completed": topics_done,
-            "tasks_available": tasks_available,
-            "progress_pct": progress_pct,
-            "categories_count": len(categories_progress),
-        }
-
-        meta = {
-            "active_courses": enrollments.filter(status='active').count(),
-            "enrolled": enrollments.count(),
-            "completion_pct": enrollments.aggregate(avg=Avg('progress_percentage'))['avg'] or 0.0,
-            "on_time_pct": 0.0,
-            "avg_grade": Grade.objects.filter(student=user).aggregate(avg=Avg('grade'))['avg'],
-            "under_review": SubmittedAssignment.objects.filter(student=user, graded_at__isnull=True).count(),
-        }
-
-        return Response({
-            "counters": counters,
-            "meta": meta,
-            "categories_progress": categories_progress,
-        })
-
-
-class TeacherStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-    """Return aggregated statistics for a teacher."""
-
-    def get(self, request):
-        course = _norm(request.query_params.get('course'))
-        date_from = _norm(request.query_params.get('from'))
-        date_to = _norm(request.query_params.get('to'))
-
-        user = request.user
-        courses = Subject.objects.filter(teacher=user)
-        if course:
-            courses = courses.filter(id=course)
-        if date_from:
-            courses = courses.filter(creationdate__gte=date_from)
-        if date_to:
-            courses = courses.filter(creationdate__lte=date_to)
-
-        enrollments = Enrollment.objects.filter(subject__in=courses)
-
-        counters = {
-            "my_courses": courses.count(),
-            "students_total": enrollments.values('student').distinct().count(),
-            "avg_completion_pct": enrollments.aggregate(avg=Avg('progress_percentage'))['avg'] or 0.0,
-            "avg_grade": Grade.objects.filter(subject__in=courses).aggregate(avg=Avg('grade'))['avg'],
-            "on_time_pct": 0.0,
-            "overdue_total": 0,
-        }
-
-        by_course = []
-        for c in courses:
-            enrolls = enrollments.filter(subject=c)
-            by_course.append({
-                "course_id": c.id,
-                "course": c.name,
-                "enrolled": enrolls.count(),
-                "completion_pct": enrolls.aggregate(avg=Avg('progress_percentage'))['avg'] or 0.0,
-                "avg_grade": Grade.objects.filter(subject=c).aggregate(avg=Avg('grade'))['avg'],
-                "on_time_pct": 0.0,
-                "overdue": 0,
-            })
-
-        return Response({
-            "counters": counters,
-            "by_course": by_course,
-        })
-
-
-class BadgesSummaryView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-    """Return summary of badges for a student."""
-
-    def get(self, request):
-        if not request.user.roles.filter(role='student').exists():
-            return Response({}, status=403)
-
-        course = _norm(request.query_params.get('course'))
-        date_from = _norm(request.query_params.get('from'))
-        date_to = _norm(request.query_params.get('to'))
-
-        badges_qs = Badge.objects.filter(is_active=True)
-        if course:
-            badges_qs = badges_qs.filter(subject_id=course)
-
-        earned_qs = UserBadge.objects.filter(user=request.user, badge__in=badges_qs)
-        if date_from:
-            earned_qs = earned_qs.filter(awarded_at__date__gte=date_from)
-        if date_to:
-            earned_qs = earned_qs.filter(awarded_at__date__lte=date_to)
-
-        earned_total = earned_qs.count()
-        available_total = badges_qs.count()
-
-        badges_qs = badges_qs.annotate(
-            cat_name=Coalesce(
-                models.F('subject__category__name'),
-                Value('Без категории', output_field=CharField()),
-            )
-        )
-        categories = {}
-        for b in badges_qs:
-            categories.setdefault(b.cat_name, 0)
-            categories[b.cat_name] += 1
-        earned_cats = earned_qs.annotate(
-            cat_name=Coalesce(
-                models.F('badge__subject__category__name'),
-                Value('Без категории', output_field=CharField()),
-            )
-        )
-        earned_map = {}
-        for eb in earned_cats:
-            earned_map[eb.cat_name] = earned_map.get(eb.cat_name, 0) + 1
-
-        categories_progress = []
-        for name, total in categories.items():
-            earned = earned_map.get(name, 0)
-            pct = (earned / total * 100) if total else 0.0
-            categories_progress.append({
-                "category": name,
-                "progress_pct": pct,
-                "earned": earned,
-                "available": total,
-            })
-
-        latest_badges = [
-            {
-                "id": ub.badge.id,
-                "title": ub.badge.name,
-                "date": ub.awarded_at,
-            }
-            for ub in earned_qs.select_related('badge').order_by('-awarded_at')[:5]
-        ]
-
-        return Response({
-            "earned_total": earned_total,
-            "available_total": available_total,
-            "progress_pct": (earned_total / available_total * 100) if available_total else 0.0,
-            "categories_count": len(categories_progress),
-            "categories_progress": categories_progress,
-            "latest_badges": latest_badges,
-            "next_candidates": [],
         })

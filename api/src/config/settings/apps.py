@@ -10,11 +10,14 @@ Middleware (промежуточное ПО) в контексте Django — э
 основной код приложения.
 """
 
-from src.core.utils.auto_api.auto_config import discover_installed_apps
+from pathlib import Path
 
-# Определяем директории для основных и внешних модулей
-CORE_DIR = 'src/core'
-MODULES_DIR = 'src/modules'
+from src.core.utils.auto_api.auto_config import discover_installed_apps
+from src.config.settings.base import BASE_DIR
+
+# Определяем директории для основных и внешних модулей (абсолютные пути)
+CORE_DIR = str(Path(BASE_DIR) / 'core')
+MODULES_DIR = str(Path(BASE_DIR) / 'modules')
 
 # Обнаруживаем и устанавливаем основные и сторонние модули
 CORE = discover_installed_apps(CORE_DIR)

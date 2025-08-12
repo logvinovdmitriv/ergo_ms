@@ -1,33 +1,41 @@
 <script setup>
-import { ref, computed, onMounted, watch, nextTick, watchEffect } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
 import { Award, Star, Lock, CheckCircle, Filter, Users, Target, TrendingUp } from 'lucide-vue-next'
 import { apiClient } from '@/js/api/manager'
 import { endpoints } from '@/js/api/endpoints'
-import { getOverview } from '../api/lmsStatsApi'
 import { globalUserRole } from '../composables/useUserRole'
-import { lmsApi } from '../js/lmsApi'
-import RoleSwitcher from '../components/RoleSwitcher.vue'
 
 const badges = ref([])
 const userBadges = ref([])
 const loading = ref(true)
 const selectedCategory = ref('all')
-const focusedId = ref(null)
-const route = useRoute()
-const router = useRouter()
 const userRole = globalUserRole
-const overview = ref(null)
-const summary = ref(null)
-const backQuery = computed(() => {
-  const q = {}
-  if (route.query.from) q.from = route.query.from
-  if (route.query.to) q.to = route.query.to
-  if (route.query.course) q.course = route.query.course
-  if (route.query.category) q.category = route.query.category
-  return q
-})
 
+// Статистика достижений
+const badgeStats = computed(() => {
+  const earned = userBadges.value.length
+  const total = badges.value.length
+  const progressPercentage = total > 0 ? (earned / total) * 100 : 0
+  
+  const categories = [...new Set(badges.value.map(b => b.category || 'Общие'))]
+  const earnedByCategory = categories.map(category => {
+    const categoryBadges = badges.value.filter(b => (b.category || 'Общие') === category)
+    const categoryEarned = categoryBadges.filter(b => isEarned(b.id)).length
+    return {
+      category,
+      earned: categoryEarned,
+      total: categoryBadges.length,
+      percentage: categoryBadges.length > 0 ? (categoryEarned / categoryBadges.length) * 100 : 0
+    }
+  })
+  
+  return {
+    earned,
+    total,
+    progressPercentage,
+    earnedByCategory
+  }
+})
 
 // Фильтрованные значки
 const filteredBadges = computed(() => {
@@ -199,15 +207,6 @@ async function loadBadges() {
   } finally {
     loading.value = false
   }
-
-  try {
-    const params = {}
-    if (route.query.category) params.category = route.query.category
-    const res = await getOverview(params)
-    overview.value = res.data
-  } catch (e) {
-    console.error('Ошибка загрузки статистики', e)
-  }
 }
 
 // Получение иконки для типа значка
@@ -234,57 +233,15 @@ function getCategoryColor(category) {
   return colors[category] || 'secondary'
 }
 
-function applyQuery() {
-  if (route.query.category) {
-    selectedCategory.value = route.query.category
-  }
-  if (route.query.focus) {
-    focusedId.value = Number(route.query.focus)
-    nextTick(() => {
-      const el = document.getElementById(`badge-${focusedId.value}`)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        setTimeout(() => { focusedId.value = null }, 2000)
-      }
-    })
-  }
-}
-
-async function init() {
-  await userRole.loadUserRoles()
-  await loadBadges()
-  try {
-    const res = await lmsApi.getBadgesSummary()
-    summary.value = res.data
-  } catch (e) {
-    console.error('Ошибка загрузки сводки значков', e)
-  }
-  applyQuery()
-}
-
-onMounted(init)
-watch(() => route.query.category, applyQuery)
-watch(() => route.query.focus, applyQuery)
-
-watchEffect(() => {
-  if (!userRole.isLoading.value && userRole.primaryRole.value !== 'student') {
-    router.replace({ name: 'LMSStats' })
-  }
+onMounted(() => {
+  userRole.loadUserRoles().then(() => {
+    loadBadges()
+  })
 })
 </script>
 
 <template>
   <div class="badges-view">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <nav aria-label="breadcrumb">
-        <ol class="breadcrumb mb-0">
-          <li class="breadcrumb-item"><router-link to="/lms/stats">LMS</router-link></li>
-          <li class="breadcrumb-item active">Достижения</li>
-        </ol>
-      </nav>
-      <router-link class="btn btn-sm btn-outline-secondary" :to="{ path: '/lms/stats', query: backQuery }">К статистике</router-link>
-    </div>
-
     <!-- Заголовок -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
@@ -293,41 +250,6 @@ watchEffect(() => {
           Мои достижения
         </h3>
         <p class="text-muted mb-0">Отслеживайте свой прогресс и получайте награды за успехи</p>
-      </div>
-    </div>
-
-    <div v-if="summary" class="row mb-4">
-      <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <h4 class="mb-1">{{ summary.earned_total }}</h4>
-            <p class="text-muted mb-0">Получено значков</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <h4 class="mb-1">{{ summary.available_total }}</h4>
-            <p class="text-muted mb-0">Всего доступно</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <h4 class="mb-1">{{ summary.progress_pct?.toFixed(1) }}%</h4>
-            <p class="text-muted mb-0">Прогресс</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card h-100">
-          <div class="card-body text-center">
-            <h4 class="mb-1">{{ summary.categories_count }}</h4>
-            <p class="text-muted mb-0">Категорий</p>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -341,81 +263,81 @@ watchEffect(() => {
 
     <template v-else>
       <!-- Общая статистика -->
-      <div v-if="overview" class="row mb-4">
-        <div class="col-lg-3 col-md-6 mb-3" v-if="overview">
+      <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
           <div class="card stats-card h-100">
             <div class="card-body text-center">
               <div class="stats-icon bg-success-subtle text-success mb-3">
                 <CheckCircle :size="24" />
               </div>
-              <h4 class="mb-1">{{ overview.cards.topics_completed }}</h4>
-              <p class="text-muted mb-0">Пройдено тем</p>
+              <h4 class="mb-1">{{ badgeStats.earned }}</h4>
+              <p class="text-muted mb-0">Получено</p>
             </div>
           </div>
         </div>
-
-        <div class="col-lg-3 col-md-6 mb-3" v-if="overview">
+        
+        <div class="col-lg-3 col-md-6 mb-3">
           <div class="card stats-card h-100">
             <div class="card-body text-center">
               <div class="stats-icon bg-primary-subtle text-primary mb-3">
                 <Target :size="24" />
               </div>
-              <h4 class="mb-1">{{ overview.cards.tasks_available }}</h4>
-              <p class="text-muted mb-0">Доступно заданий</p>
+              <h4 class="mb-1">{{ badgeStats.total }}</h4>
+              <p class="text-muted mb-0">Всего доступно</p>
             </div>
           </div>
         </div>
-
-        <div class="col-lg-3 col-md-6 mb-3" v-if="overview">
+        
+        <div class="col-lg-3 col-md-6 mb-3">
           <div class="card stats-card h-100">
             <div class="card-body text-center">
               <div class="stats-icon bg-warning-subtle text-warning mb-3">
                 <TrendingUp :size="24" />
               </div>
-              <h4 class="mb-1">{{ overview.cards.overall_progress_percent }}%</h4>
+              <h4 class="mb-1">{{ badgeStats.progressPercentage.toFixed(0) }}%</h4>
               <p class="text-muted mb-0">Прогресс</p>
             </div>
           </div>
         </div>
-
-        <div class="col-lg-3 col-md-6 mb-3" v-if="overview">
+        
+        <div class="col-lg-3 col-md-6 mb-3">
           <div class="card stats-card h-100">
             <div class="card-body text-center">
               <div class="stats-icon bg-info-subtle text-info mb-3">
                 <Star :size="24" />
               </div>
-              <h4 class="mb-1">{{ overview.cards.active_categories_count }}</h4>
+              <h4 class="mb-1">{{ categories.length }}</h4>
               <p class="text-muted mb-0">Категорий</p>
             </div>
           </div>
         </div>
       </div>
-      <div v-else class="mb-4 text-center text-muted">Статистика недоступна</div>
 
       <!-- Прогресс по категориям -->
-      <div class="card mb-4" v-if="overview">
+      <div class="card mb-4">
         <div class="card-header">
-          <h6 class="mb-0">Прогресс по категориям курсов</h6>
+          <h6 class="mb-0">Прогресс по категориям</h6>
         </div>
-        <div class="card-body" v-if="overview.progress_by_category.length">
+        <div class="card-body">
           <div class="row">
-            <div
-              v-for="cat in overview.progress_by_category"
-              :key="cat.id"
+            <div 
+              v-for="categoryData in badgeStats.earnedByCategory" 
+              :key="categoryData.category"
               class="col-lg-6 mb-3"
             >
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="fw-medium">{{ cat.title }}</span>
-                <span class="text-muted">{{ cat.progress_percent }}%</span>
+                <span class="fw-medium">{{ categoryData.category }}</span>
+                <span class="text-muted">{{ categoryData.earned }}/{{ categoryData.total }}</span>
               </div>
               <div class="progress" style="height: 8px;">
-                <div class="progress-bar" :style="`width: ${cat.progress_percent}%`"></div>
+                <div 
+                  class="progress-bar"
+                  :class="`bg-${getCategoryColor(categoryData.category)}`"
+                  :style="`width: ${categoryData.percentage}%`"
+                ></div>
               </div>
             </div>
           </div>
-        </div>
-        <div v-else class="card-body text-center text-muted">
-          Нет данных
         </div>
       </div>
 
@@ -464,10 +386,9 @@ watchEffect(() => {
           :key="badge.id" 
           class="col-lg-4 col-md-6 mb-4"
         >
-          <div
-            class="card badge-card h-100"
-            :id="`badge-${badge.id}`"
-            :class="{ 'earned': isEarned(badge.id), 'is-focused': focusedId === badge.id }"
+          <div 
+            class="card badge-card h-100" 
+            :class="{ 'earned': isEarned(badge.id) }"
           >
             <div class="card-body text-center">
               <div class="badge-icon mb-3">
@@ -528,7 +449,6 @@ watchEffect(() => {
       </div>
     </template>
   </div>
-  <RoleSwitcher />
 </template>
 
 <style lang="scss" scoped>
@@ -565,9 +485,6 @@ watchEffect(() => {
     &.earned {
       border-color: var(--bs-success);
       background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-    }
-    &.is-focused {
-      border-color: var(--bs-primary);
     }
   }
   

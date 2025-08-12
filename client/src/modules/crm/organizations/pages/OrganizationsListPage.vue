@@ -1,17 +1,15 @@
 <template>
   <OrgPageShell>
-    <div class="orgs-scope">
-      <OrganizationsList />
-    </div>
+    <OrganizationsList />
   </OrgPageShell>
 </template>
 
 <script>
-import OrgPageShell from '../components/OrgPageShell.vue'
-import OrganizationsList from '../OrganizationsList.vue'
+import OrgPageShell from '../components/OrgPageShell.vue';
+import OrganizationsList from '../OrganizationsList.vue';
 
 export default {
   name: 'OrganizationListPage',
   components: { OrgPageShell, OrganizationsList }
-}
+};
 </script>

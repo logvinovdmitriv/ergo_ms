@@ -1,38 +1,42 @@
 <template>
   <div class="projects-tasks-management">
-    <div class="pm-page-header">
-      <h2><i class="fas fa-cogs me-2"></i>Управление проектами и задачами</h2>
+    <div class="pm-page-header d-flex align-items-center">
+      <h2 class="d-flex align-items-center gap-2"><Settings :size="20" />Управление проектами и задачами</h2>
     </div>
 
     <!-- Вкладки -->
     <div class="management-tabs">
       <ul class="nav nav-tabs" id="managementTabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="projects-tab" data-bs-toggle="tab" 
+          <button class="nav-link active d-inline-flex align-items-center gap-2" id="projects-tab" data-bs-toggle="tab" 
                   data-bs-target="#projects" type="button" role="tab" aria-controls="projects" 
                   aria-selected="true" @click="activeTab = 'projects'">
-            <i class="fas fa-folder-open me-2"></i>Проекты
+            <FolderOpen :size="16" />
+            <span>Проекты</span>
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="tasks-tab" data-bs-toggle="tab" 
+          <button class="nav-link d-inline-flex align-items-center gap-2" id="tasks-tab" data-bs-toggle="tab" 
                   data-bs-target="#tasks" type="button" role="tab" aria-controls="tasks" 
                   aria-selected="false" @click="activeTab = 'tasks'">
-            <i class="fas fa-tasks me-2"></i>Задачи
+            <ListTodo :size="16" />
+            <span>Задачи</span>
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="statuses-tab" data-bs-toggle="tab" 
+          <button class="nav-link d-inline-flex align-items-center gap-2" id="statuses-tab" data-bs-toggle="tab" 
                   data-bs-target="#statuses" type="button" role="tab" aria-controls="statuses" 
                   aria-selected="false" @click="activeTab = 'statuses'">
-            <i class="fas fa-flag me-2"></i>Статусы
+            <Flag :size="16" />
+            <span>Статусы</span>
           </button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="priorities-tab" data-bs-toggle="tab" 
+          <button class="nav-link d-inline-flex align-items-center gap-2" id="priorities-tab" data-bs-toggle="tab" 
                   data-bs-target="#priorities" type="button" role="tab" aria-controls="priorities" 
                   aria-selected="false" @click="activeTab = 'priorities'">
-            <i class="fas fa-exclamation-triangle me-2"></i>Приоритеты
+            <AlertTriangle :size="16" />
+            <span>Приоритеты</span>
           </button>
         </li>
       </ul>
@@ -46,8 +50,9 @@
         <div v-if="viewMode === 'project-view'" class="project-view-section">
           <div class="d-flex justify-content-between align-items-center mb-4">
             <div class="d-flex align-items-center">
-              <button class="btn btn-outline-secondary me-3" @click="backToProjectsList">
-                <i class="fas fa-arrow-left me-2"></i>К списку проектов
+              <button class="btn btn-outline-secondary d-inline-flex align-items-center gap-2 me-3" @click="backToProjectsList">
+                <ArrowLeft :size="16" />
+                <span>К списку проектов</span>
               </button>
               <h5 class="mb-0">Просмотр проекта</h5>
             </div>
@@ -60,8 +65,9 @@
         <div v-else class="projects-management-section">
           <div class="d-flex justify-content-between align-items-center mb-4">
             <h5 class="mb-0">Управление проектами</h5>
-            <button class="btn btn-primary" @click="createProject">
-              <i class="fas fa-plus me-2"></i>Создать проект
+            <button class="btn btn-primary d-inline-flex align-items-center gap-2" @click="createProject">
+              <Plus :size="16" />
+              <span>Создать проект</span>
             </button>
           </div>
           
@@ -79,8 +85,9 @@
         <div class="tasks-management-section">
           <div class="d-flex justify-content-between align-items-center mb-4">
             <h5 class="mb-0">Управление задачами</h5>
-            <button class="btn btn-primary" @click="createTask">
-              <i class="fas fa-plus me-2"></i>Создать задачу
+            <button class="btn btn-primary d-inline-flex align-items-center gap-2" @click="createTask">
+              <Plus :size="16" />
+              <span>Создать задачу</span>
             </button>
           </div>
           
@@ -88,6 +95,7 @@
            <TasksList 
              ref="tasksComponent"
              :management-mode="true"
+             :initial-filters="deriveInitialTaskFilters()"
              @refresh="refreshData" 
            />
         </div>
@@ -99,17 +107,19 @@
           <!-- Подвкладки для статусов проектов и задач -->
           <ul class="nav nav-pills mb-4" id="statusesSubTabs" role="tablist">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="project-statuses-tab" data-bs-toggle="pill" 
+                <button class="nav-link active d-inline-flex align-items-center gap-2" id="project-statuses-tab" data-bs-toggle="pill" 
                       data-bs-target="#project-statuses" type="button" role="tab" 
                       aria-controls="project-statuses" aria-selected="true">
-                <i class="fas fa-folder-open me-2"></i>Статусы проектов
+                  <FolderOpen :size="14" />
+                  <span>Статусы проектов</span>
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="task-statuses-tab" data-bs-toggle="pill" 
+                <button class="nav-link d-inline-flex align-items-center gap-2" id="task-statuses-tab" data-bs-toggle="pill" 
                       data-bs-target="#task-statuses" type="button" role="tab" 
                       aria-controls="task-statuses" aria-selected="false">
-                <i class="fas fa-tasks me-2"></i>Статусы задач
+                  <ListTodo :size="14" />
+                  <span>Статусы задач</span>
               </button>
             </li>
           </ul>
@@ -131,17 +141,19 @@
           <!-- Подвкладки для приоритетов проектов и задач -->
           <ul class="nav nav-pills mb-4" id="prioritiesSubTabs" role="tablist">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="project-priorities-tab" data-bs-toggle="pill" 
+                <button class="nav-link active d-inline-flex align-items-center gap-2" id="project-priorities-tab" data-bs-toggle="pill" 
                       data-bs-target="#project-priorities" type="button" role="tab" 
                       aria-controls="project-priorities" aria-selected="true">
-                <i class="fas fa-folder-open me-2"></i>Приоритеты проектов
+                  <FolderOpen :size="14" />
+                  <span>Приоритеты проектов</span>
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="task-priorities-tab" data-bs-toggle="pill" 
+                <button class="nav-link d-inline-flex align-items-center gap-2" id="task-priorities-tab" data-bs-toggle="pill" 
                       data-bs-target="#task-priorities" type="button" role="tab" 
                       aria-controls="task-priorities" aria-selected="false">
-                <i class="fas fa-tasks me-2"></i>Приоритеты задач
+                  <ListTodo :size="14" />
+                  <span>Приоритеты задач</span>
               </button>
             </li>
           </ul>
@@ -210,6 +222,20 @@ export default {
     }
   },
   methods: {
+    deriveInitialTaskFilters() {
+      const q = this.$route?.query || {}
+      return {
+        project: q.project || q.projectFilter || '',
+        my_tasks: ['1','true','True',true].includes(q.my_tasks),
+        status: q.status || '',
+        priority: q.priority || '',
+        assignee: q.assignee || '',
+        ordering: q.ordering || '-created_at',
+        parent_filter: q.parent_filter || '',
+        search: q.search || '',
+        view: q.view || ''
+      }
+    },
     async createProject() {
       if (this.$refs.projectsComponent) {
         await this.$refs.projectsComponent.createProject()
@@ -227,6 +253,10 @@ export default {
         this.$refs.projectsComponent.loadProjects()
       } else if (this.activeTab === 'tasks' && this.$refs.tasksComponent) {
         this.$refs.tasksComponent.loadTasks()
+        // Если выбран проект в соседней вкладке, показываем его задачи
+        if (this.selectedProjectId) {
+          this.$refs.tasksComponent.setProjectFilter(this.selectedProjectId)
+        }
       }
     },
 
@@ -296,6 +326,10 @@ export default {
       // Устанавливаем активную вкладку из URL
       if (query.tab) {
         this.activeTab = query.tab
+      }
+      // Если открыта вкладка задач и задан project, фильтруем по нему
+      if (this.activeTab === 'tasks' && query.project && this.$refs.tasksComponent) {
+        this.$nextTick(() => this.$refs.tasksComponent.setProjectFilter(query.project))
       }
     },
 

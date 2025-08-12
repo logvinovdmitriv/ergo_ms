@@ -1,217 +1,136 @@
 <template>
-  <div class="org-details orgs-scope">
+  <div class="org-details">
     <!-- Общая информация -->
     <section class="card">
       <header class="card__header">
         <h2 class="card__title">Общая информация</h2>
-
-        <div class="toolbar">
-          <button v-if="canManage" class="btn btn--sm btn--danger btn--ghost" @click="onDelete">
-            Удалить организацию
-          </button>
-          <button v-if="isParticipant" class="btn btn--sm btn--ghost" @click="onLeave">
-            Выйти из организации
-          </button>
+        <div class="toolbar" v-if="canDelete">
+          <button class="btn btn--sm btn--danger" @click="deleteOrg">Удалить</button>
         </div>
       </header>
 
       <div class="card__body">
         <div v-if="loadingOrg"><div class="skeleton skeleton--row"></div></div>
 
-        <div v-else>
+        <template v-else>
           <div class="org-summary">
             <div class="cell-main">
               <div class="avatar" v-if="org.logo_url"><img :src="org.logo_url" alt="" /></div>
-              <div class="avatar avatar--placeholder" v-else>{{ (org.name || 'Организация')[0] }}</div>
+              <div class="avatar avatar--placeholder" v-else>{{ org.name?.[0] || 'О' }}</div>
 
-              <div class="name-stack">
-                <template v-if="!editMode">
-                  <div class="title">
-                    <span class="text-lg">{{ org.name || 'Без названия' }}</span>
-                  </div>
-                </template>
-
-                <template v-else>
-                  <input v-model="editForm.name" class="input input--md" placeholder="Название…" />
-                </template>
-
-                <div class="badges">
-                  <span class="badge" :class="(org.status || 'active') === 'active' ? 'badge--success' : 'badge--muted'">
-                    {{ org.status || 'active' }}
-                  </span>
-                  <span class="badge badge--outline">{{ myRole(org) }}</span>
-                  <span class="badge badge--neutral">{{ membersCount }} участника</span>
-                </div>
+              <div>
+                <div class="title">{{ org.name || '—' }}</div>
+                <div class="muted" v-if="org.slug">@{{ org.slug }}</div>
               </div>
             </div>
 
-            <div class="toolbar">
-              <button
-                v-if="!editMode && canManage"
-                class="btn btn--sm btn--secondary"
-                @click="startEdit"
-              >
-                Изменить
-              </button>
-              <div v-if="editMode" class="toolbar__edit">
-                <button class="btn btn--sm btn--primary" :disabled="saving" @click="saveInfo">
-                  {{ saving ? 'Сохраняем…' : 'Сохранить' }}
-                </button>
-                <button class="btn btn--sm btn--ghost" :disabled="saving" @click="cancelEdit">
-                  Отмена
-                </button>
-              </div>
-
-              <button v-if="canInvite" class="btn btn--sm btn--primary" @click="showInvite = true">
-                Пригласить
-              </button>
+            <div class="org-meta">
+              <span class="badge" :class="org.status === 'active' ? 'badge--success' : 'badge--muted'">
+                {{ org.status || 'active' }}
+              </span>
+              <span class="badge badge--outline">{{ myRole(org) }}</span>
+              <span class="badge badge--neutral" :title="`Принято: ${org.accepted_members_count ?? '-'} • Приглашено: ${org.pending_members_count ?? '-'}`">
+                {{ membersCount }} участника
+              </span>
             </div>
           </div>
 
-          <!-- VIEW MODE -->
-          <dl v-if="!editMode" class="dl dl--grid">
-            <div><dt>Сайт</dt><dd>
-              <template v-if="org.website">
-                <a :href="org.website" target="_blank" rel="noopener">{{ org.website }}</a>
-              </template>
-              <span v-else class="muted">не указано</span>
-            </dd></div>
+          <dl class="dl dl--grid">
+  <div>
+    <dt>Сайт</dt>
+    <dd>
+      <template v-if="org.website">
+        <a :href="org.website" target="_blank">{{ org.website }}</a>
+      </template>
+      <template v-else>
+        <span class="muted">Нет данных</span>
+      </template>
+    </dd>
+  </div>
 
-            <div><dt>Email</dt><dd>{{ org.email || 'не указано' }}</dd></div>
-            <div><dt>Телефон</dt><dd>{{ org.phone || 'не указано' }}</dd></div>
-            <div><dt>Страна</dt><dd>{{ org.country || 'не указано' }}</dd></div>
-            <div><dt>Часовой пояс</dt><dd>{{ org.timezone || 'не указано' }}</dd></div>
-            <div class="col-2"><dt>Адрес</dt><dd>{{ org.address || 'не указано' }}</dd></div>
-            <div class="col-2"><dt>Описание</dt><dd>{{ org.description || 'не указано' }}</dd></div>
-            <div class="col-2"><dt>Отрасль</dt><dd>{{ org.industry || 'не указано' }}</dd></div>
-            <div><dt>Плательщик</dt><dd>{{ org.billing_name || 'не указано' }}</dd></div>
-            <div><dt>VAT</dt><dd>{{ org.billing_vat || 'не указано' }}</dd></div>
-            <div class="col-2"><dt>Адрес для счетов</dt><dd>{{ org.billing_address || 'не указано' }}</dd></div>
+  <div>
+    <dt>Email</dt>
+    <dd>{{ org.email || 'Нет данных' }}</dd>
+  </div>
 
-            <div><dt>Видимость</dt><dd>{{ org.visibility || 'private' }}</dd></div>
-            <div class="col-2"><dt>Роль приглашённых по умолчанию</dt><dd>{{ org.default_role || 'member' }}</dd></div>
-          </dl>
+  <div>
+    <dt>Телефон</dt>
+    <dd>{{ org.phone || 'Нет данных' }}</dd>
+  </div>
 
-          <!-- EDIT MODE -->
-          <div v-else class="form-grid">
-            <label>
-              <span>Сайт</span>
-              <input v-model="editForm.website" class="input" placeholder="https://example.com" />
-            </label>
+  <div>
+    <dt>Страна</dt>
+    <dd>{{ org.country || 'Нет данных' }}</dd>
+  </div>
 
-            <label>
-              <span>Email</span>
-              <input v-model="editForm.email" class="input" />
-            </label>
+  <div>
+    <dt>Часовой пояс</dt>
+    <dd>{{ org.timezone || 'Нет данных' }}</dd>
+  </div>
 
-            <label>
-              <span>Телефон</span>
-              <input v-model="editForm.phone" class="input" />
-            </label>
+  <div class="col-2">
+    <dt>Адрес</dt>
+    <dd>{{ org.address || 'Нет данных' }}</dd>
+  </div>
 
-            <label>
-              <span>Страна</span>
-              <input v-model="editForm.country" class="input" />
-            </label>
+  <div class="col-2">
+    <dt>Описание</dt>
+    <dd>{{ org.description || 'Нет данных' }}</dd>
+  </div>
+</dl>
 
-            <label>
-              <span>Часовой пояс</span>
-              <input v-model="editForm.timezone" class="input" />
-            </label>
-
-            <label class="col-span-2">
-              <span>Адрес</span>
-              <input v-model="editForm.address" class="input" />
-            </label>
-
-            <label class="col-span-2">
-              <span>Описание</span>
-              <textarea v-model="editForm.description" class="input textarea" />
-            </label>
-
-            <label class="col-span-2">
-              <span>Отрасль</span>
-              <input v-model="editForm.industry" class="input" />
-            </label>
-
-            <label>
-              <span>Плательщик</span>
-              <input v-model="editForm.billing_name" class="input" />
-            </label>
-
-            <label>
-              <span>VAT</span>
-              <input v-model="editForm.billing_vat" class="input" />
-            </label>
-
-            <label class="col-span-2">
-              <span>Адрес для счетов</span>
-              <input v-model="editForm.billing_address" class="input" />
-            </label>
-
-            <label>
-              <span>Видимость</span>
-              <select v-model="editForm.visibility" class="input">
-                <option value="private">private</option>
-                <option value="internal">internal</option>
-                <option value="public">public</option>
-              </select>
-            </label>
-
-            <label class="col-span-2">
-              <span>Роль приглашённых по умолчанию</span>
-              <select v-model="editForm.default_role" class="input">
-                <option value="member">member</option>
-                <option value="viewer">viewer</option>
-                <option value="admin">admin</option>
-              </select>
-            </label>
-          </div>
-        </div>
+        </template>
       </div>
     </section>
 
     <!-- Участники -->
     <section class="card">
       <header class="card__header">
-        <h3 class="card__title">Участники</h3>
+        <h2 class="card__title">Участники</h2>
+        <div class="toolbar" v-if="canInvite">
+          <button class="btn btn--sm btn--primary" @click="showInvite = true">Пригласить</button>
+        </div>
       </header>
+
       <div class="card__body">
-        <div class="table-wrap">
-          <table class="table table--hover">
+        <div v-if="loadingMembers"><div class="skeleton skeleton--row"></div></div>
+
+        <div v-else class="table-wrap">
+          <table class="table table--compact">
             <thead>
               <tr>
-                <th>Участник</th>
+                <th>Пользователь</th>
                 <th>Роль</th>
                 <th>Статус</th>
                 <th class="col-actions" v-if="canManage">Действия</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in members" :key="m.user?.id">
+              <tr v-for="m in members" :key="m.user?.id || m.id">
                 <td>
                   <div class="cell-main">
-                    <div class="avatar avatar--sm">
-                      <div class="avatar avatar--placeholder">{{ initials(m.user) }}</div>
-                    </div>
-                    <div class="cell-main__text">
-                      <div class="title">{{ m.user?.full_name || m.user?.username || '—' }}</div>
-                      <div class="muted">{{ m.user?.email || '—' }}</div>
+                    <div class="avatar">{{ initials(m.user) }}</div>
+                    <div>
+                      <div class="title">{{ m.user?.full_name || m.user?.username || m.user?.email }}</div>
+                      <div class="muted">{{ m.user?.email }}</div>
                     </div>
                   </div>
                 </td>
                 <td>
-                  <!-- селект убран для самого себя -->
-                  <template v-if="canChangeRole(m) && toStr(m.user?.id) !== uid">
-                    <select v-model="m.role" class="input input--sm" @change="changeRole(m)">
-                      <option v-for="r in memberRoles" :key="r" :value="r">{{ r }}</option>
+                  <template v-if="canManage && m.role !== 'owner'">
+                    <select v-model="m.role" class="select select--xs" @change="changeRole(m.user.id, m.role)">
+                      <option value="admin">admin</option>
+                      <option value="member">member</option>
+                      <option value="viewer">viewer</option>
                     </select>
                   </template>
-                  <span v-else class="badge badge--outline">{{ m.role || 'member' }}</span>
+                  <template v-else>
+                    <span class="badge badge--outline">{{ m.role }}</span>
+                  </template>
                 </td>
                 <td>
-                  <span class="badge" :class="(m.status || 'pending') === 'accepted' ? 'badge--success' : 'badge--muted'">
-                    {{ m.status || 'pending' }}
+                  <span class="badge" :class="m.status === 'accepted' ? 'badge--success' : 'badge--muted'">
+                    {{ m.status }}
                   </span>
                 </td>
                 <td class="col-actions" v-if="canManage">
@@ -230,70 +149,38 @@
       </div>
     </section>
 
-    <!-- Задачи -->
+    <!-- Проекты организации -->
     <section class="card">
       <header class="card__header">
-        <h3 class="card__title">Задачи</h3>
+        <h2 class="card__title">Проекты организации</h2>
       </header>
       <div class="card__body">
-        <div v-if="loadingTasks" class="text-center py-3">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Загрузка...</span>
-          </div>
+        <div v-if="loadingProjects"><div class="skeleton skeleton--row"></div></div>
+
+        <div v-else-if="projects.length === 0" class="empty">
+          <p class="muted">Проектов пока нет.</p>
+          <router-link class="btn btn--sm btn--primary" to="/crm/project-management/my-projects">К проектам</router-link>
         </div>
-        <div v-else-if="tasks.length === 0" class="text-center text-muted py-3">
-          Задач пока нет
-        </div>
-        <div v-else class="list-group">
-          <router-link
-            v-for="t in tasks"
-            :key="t.id"
-            class="list-group-item list-group-item-action"
-            :to="taskLink(t)"
-          >
-            <div class="d-flex justify-content-between align-items-start">
-              <div class="me-3">
-                <div class="fw-bold">{{ t.title || 'Без названия' }}</div>
-                <div class="small text-muted d-flex align-items-center flex-wrap">
-                  <span v-if="t.project">Проект: {{ t.project.name }}</span>
-                  <span v-else>Без проекта</span>
-                  <span class="mx-1">·</span>
-                  <span v-if="t.assignee" class="d-flex align-items-center">
-                    <img
-                      :src="getAvatarUrl(t.assignee, 24)"
-                      alt=""
-                      class="rounded-circle me-1"
-                      style="width:24px;height:24px;"
-                    />
-                    {{ t.assignee.full_name || t.assignee.username }}
-                  </span>
-                  <span v-else>Исполнитель: —</span>
-                </div>
-              </div>
-              <div class="text-end">
-                <div class="mb-1">
-                  <span class="badge rounded-pill me-2" :class="getTaskStatusClass(t.status)">
-                    {{ humanTaskStatus(t.status) }}
-                  </span>
-                  <span class="badge rounded-pill" :class="getPriorityClass(t.priority)">
-                    {{ humanPriority(t.priority) }}
-                  </span>
-                </div>
-                <div class="small" :class="dueClass(t.due_date, t.status)">
-                  <i class="fas fa-clock me-1"></i>{{ formatDate(t.due_date) }}
-                </div>
-              </div>
-            </div>
-          </router-link>
+
+        <div v-else class="table-wrap">
+          <table class="table table--compact">
+            <thead><tr><th>Название</th><th class="hide-sm">Статус</th></tr></thead>
+            <tbody>
+              <tr v-for="p in projects" :key="p.id">
+                <td>{{ p.name }}</td>
+                <td class="hide-sm"><span class="badge badge--outline">{{ p.status || 'active' }}</span></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
 
-    <!-- invite modal -->
+    <!-- Модалка приглашения -->
     <OrganizationInviteModal
       v-if="showInvite"
-      :org-id="id"
-      :inviting="inviting"
+      :org="org"
+      :loading="inviting"
       @close="showInvite = false"
       @submit="onInviteSubmit"
     />
@@ -301,48 +188,66 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue';
-import { useUserStore } from '@/modules/cms/js/userStore.js';
-import { storeToRefs } from 'pinia';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useStore } from 'vuex';
 import { useRoute, useRouter } from 'vue-router';
 import OrganizationApi from './js/organizationApi.js';
 import OrganizationInviteModal from './components/OrganizationInviteModal.vue';
-import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js';
 
 export default {
   name: 'OrganizationDetails',
   components: { OrganizationInviteModal },
   setup() {
-    const userStore = useUserStore();
-    const { user, profile } = storeToRefs(userStore);
+    const store = useStore();
     const route = useRoute();
     const router = useRouter();
+    const userId = store.state?.auth?.user?.id;
     const id = Number(route.params.id);
 
     const org = ref({});
     const members = ref([]);
-    const myMember = ref(null);
-    const isParticipant = ref(false);
     const projects = ref([]);
-    const tasks = ref([]);
 
     const loadingOrg = ref(false);
     const loadingMembers = ref(false);
     const loadingProjects = ref(false);
-    const loadingTasks = ref(false);
 
     const showInvite = ref(false);
     const inviting = ref(false);
 
-    // === Редактирование общей информации ===
-    const editMode = ref(false);
-    const saving = ref(false);
-    const editForm = ref({});
+    // counts / formatting
+    const membersCount = computed(() => org.value?.members_count ?? members.value.length ?? 0);
 
+    const normalizedWebsite = computed(() => {
+      const w = (org.value?.website || '').trim();
+      if (!w) return '';
+      return /^(https?:)?\/\//i.test(w) ? w : `https://${w}`;
+    });
+
+    const displayWebsite = computed(() => {
+      const w = (org.value?.website || '').trim();
+      if (!w) return '';
+      try {
+        const u = new URL(normalizedWebsite.value);
+        // host + path без слеша в конце
+        const path = u.pathname === '/' ? '' : u.pathname;
+        return u.host + path;
+      } catch {
+        return w;
+      }
+    });
+
+    const telHref = computed(() => {
+      const p = (org.value?.phone || '').trim();
+      return p ? `tel:${p.replace(/\s+/g, '')}` : '';
+    });
+
+    // data loaders
     const loadOrg = async () => {
       loadingOrg.value = true;
       try {
         const resp = await OrganizationApi.getOrganization(id);
+        console.log('API resp', resp.data);
         org.value = resp?.data || {};
       } finally { loadingOrg.value = false; }
     };
@@ -352,7 +257,6 @@ export default {
       try {
         const resp = await OrganizationApi.getOrganizationMembers(id);
         members.value = resp?.data || [];
-        updateMyMember();
       } finally { loadingMembers.value = false; }
     };
 
@@ -364,143 +268,34 @@ export default {
       } finally { loadingProjects.value = false; }
     };
 
-    const loadTasks = async () => {
-      loadingTasks.value = true;
-      try {
-        const resp = await OrganizationApi.getTasks(id);
-        tasks.value = resp?.data?.results || resp?.data || [];
-      } finally { loadingTasks.value = false; }
-    };
-
-    // ====== Хелперы ======
-    const formatDate = (date) => {
-      if (!date) return '—';
-      return new Date(date).toLocaleDateString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    };
-
-    const projectStatusClasses = {
-      planning: 'bg-secondary',
-      active: 'bg-success',
-      on_hold: 'bg-warning text-dark',
-      completed: 'bg-primary',
-      cancelled: 'bg-danger'
-    };
-
-    const projectStatusTexts = {
-      planning: 'Планирование',
-      active: 'Активный',
-      on_hold: 'На паузе',
-      completed: 'Завершен',
-      cancelled: 'Отменен'
-    };
-
-    const taskStatusClasses = {
-      todo: 'bg-secondary',
-      in_progress: 'bg-info',
-      review: 'bg-warning text-dark',
-      done: 'bg-success',
-      cancelled: 'bg-danger'
-    };
-
-    const taskStatusTexts = {
-      todo: 'К выполнению',
-      in_progress: 'В работе',
-      review: 'На проверке',
-      done: 'Готово',
-      cancelled: 'Отменена'
-    };
-
-    const priorityClasses = {
-      low: 'bg-light text-dark',
-      medium: 'bg-info',
-      high: 'bg-warning text-dark',
-      urgent: 'bg-danger'
-    };
-
-    const priorityTexts = {
-      low: 'Низкий',
-      medium: 'Средний',
-      high: 'Высокий',
-      urgent: 'Срочный'
-    };
-
-    const getProjectStatusClass = (s) => projectStatusClasses[s] || 'bg-secondary';
-    const getTaskStatusClass = (s) => taskStatusClasses[s] || 'bg-secondary';
-    const getPriorityClass = (p) => priorityClasses[p] || 'bg-light text-dark';
-    const humanProjectStatus = (s) => projectStatusTexts[s] || s;
-    const humanTaskStatus = (s) => taskStatusTexts[s] || s;
-    const humanPriority = (p) => priorityTexts[p] || p;
-
-    const dueClass = (due, status) => {
-      if (!due) return 'text-muted';
-      if (status === 'done') return 'text-muted';
-      const now = new Date();
-      const d = new Date(due);
-      if (d < now) return 'text-danger fw-bold';
-      if (d - now < 24 * 60 * 60 * 1000) return 'text-warning fw-bold';
-      return 'text-muted';
-    };
-
-    const taskLink = (task) => ({
-      path: '/crm/project-management',
-      query: { tab: 'tasks', open: task.id }
-    });
-
-    // ====== ПРАВА (как в списке) ======
-    const toStr = v => (v == null ? null : String(v));
-    const uid = computed(() => toStr(user.value?.id ?? profile.value?.id));
-    const ownerIdFromOrg = computed(() => toStr(org.value?.owner?.id ?? org.value?.owner_id));
-
-    const isOwner = computed(() =>
-      org.value?.my_role === 'owner' || (uid.value && ownerIdFromOrg.value === uid.value)
+    // permissions
+    const isOwner = computed(() => org.value?.owner && org.value.owner.id === userId);
+    const myRole  = (o) => (o?.owner?.id === userId ? 'owner' : (o?.my_role || 'member'));
+    const canInvite = computed(() =>
+      isOwner.value || members.value.some(m => m.user?.id === userId && (m.role === 'admin' || m.role === 'owner'))
     );
-
-    const isAdminFromMembers = computed(() => ['admin', 'owner'].includes(myMember.value?.role));
-    const isAdmin = computed(() => org.value?.my_role === 'admin' || isAdminFromMembers.value);
-
-    const canInvite = computed(() => isOwner.value || isAdmin.value);
     const canManage = canInvite;
+    const canDelete = isOwner;
 
-    function updateMyMember() {
-      myMember.value = members.value.find(m => toStr(m.user?.id) === uid.value) || null;
-      isParticipant.value = !!myMember.value;
-    }
-    watch([members, uid], updateMyMember, { immediate: true });
-
-    const myRole = (o) =>
-      (o?.my_role) ||
-      (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
-
-    const memberRoles = computed(() =>
-      isOwner.value ? ['owner', 'admin', 'member', 'viewer'] : ['admin', 'member', 'viewer']
-    );
-
-    const canChangeRole = (m) =>
-      (isOwner.value || isAdmin.value) && toStr(m.user?.id) !== uid.value && m.role !== 'owner';
-
+    // helpers
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
 
-    const changeRole = async (m) => {
-      try {
-        await OrganizationApi.updateOrganizationMember(id, m.user.id, { role: m.role });
-        await Promise.all([loadMembers(), loadOrg()]);
-      } catch (e) {
-        alert(e?.response?.data?.detail || 'Ошибка изменения роли');
-      }
-    };
-
+    // actions
     const removeMember = async (userIdToRemove) => {
       if (!confirm('Удалить участника из организации?')) return;
-      try {
-        await OrganizationApi.removeOrganizationMember(id, userIdToRemove);
-        await loadMembers();
-      } catch (e) {
-        alert(e?.response?.data?.detail || 'Ошибка удаления участника');
-      }
+      await OrganizationApi.removeOrganizationMember(id, userIdToRemove);
+      await loadMembers();
+    };
+
+    const changeRole = async (userIdToChange, role) => {
+      await OrganizationApi.updateOrganizationMember(id, userIdToChange, { role });
+      await loadMembers();
+    };
+
+    const deleteOrg = async () => {
+      if (!confirm('Удалить организацию?')) return;
+      await OrganizationApi.deleteOrganization(id);
+      router.push({ name: 'OrganizationList' });
     };
 
     const onInviteSubmit = async ({ email, role }) => {
@@ -509,161 +304,37 @@ export default {
         await OrganizationApi.inviteToOrganization(id, { email, role });
         showInvite.value = false;
         await loadMembers();
-      } catch (e) {
-        alert(e?.response?.data?.detail || 'Ошибка приглашения');
       } finally {
         inviting.value = false;
       }
     };
 
-    const onDelete = async () => {
-      if (!confirm('Удалить организацию? Это действие нельзя отменить.')) return;
-      try {
-        await OrganizationApi.deleteOrganization(id);
-        router.push({ name: 'OrganizationList' });
-      } catch (e) {
-        alert(e?.response?.data?.detail || 'Ошибка удаления');
-      }
-    };
-
-    const onLeave = async () => {
-      if (isOwner.value) {
-        alert('Вы владелец организации. Сначала передайте статус владельца.');
-        return;
-      }
-      if (!confirm('Выйти из организации?')) return;
-      try {
-        await OrganizationApi.leaveOrganization(id);
-        router.push({ name: 'OrganizationList' });
-      } catch (e) {
-        alert(e?.response?.data?.detail || 'Ошибка выхода');
-      }
-    };
-
-    // === редактирование: старт/отмена/сохранение ===
-    const startEdit = () => {
-      editForm.value = {
-        visibility: 'private',
-        default_role: 'member',
-        status: 'active',
-        ...org.value,
-      };
-      editMode.value = true;
-    };
-    const cancelEdit = () => {
-      editForm.value = { ...org.value };
-      editMode.value = false;
-    };
-    const sanitizePatch = (data) => {
-      const allowed = ['name','website','email','phone','country','timezone','address','description','industry','billing_name','billing_vat','billing_address','visibility','default_role','status'];
-      const patch = {};
-      allowed.forEach(k => {
-        const val = data[k];
-        if (val !== undefined && val !== null && val !== '' && val !== org.value[k]) {
-          patch[k] = val;
-        }
-      });
-      if (patch.default_role === 'owner') patch.default_role = 'member';
-      return patch;
-    };
-    const saveInfo = async () => {
-      saving.value = true;
-      try {
-        await OrganizationApi.updateOrganization(id, sanitizePatch(editForm.value));
-        await loadOrg();
-        editMode.value = false;
-      } catch (e) {
-        alert(e?.response?.data?.detail || 'Ошибка сохранения');
-      } finally {
-        saving.value = false;
-      }
-    };
-
-    // синхронизация формы, если org обновился вне редактирования
-    watch(org, (val) => {
-      if (!editMode.value) editForm.value = { ...val };
-    }, { deep: true });
-
-    const membersCount = computed(() =>
-      org.value?.members_count ?? members.value?.length ?? 0
-    );
-
     onMounted(async () => {
-      await Promise.all([loadOrg(), loadMembers(), loadProjects(), loadTasks()]);
-      editForm.value = { ...org.value };
+      await Promise.all([loadOrg(), loadMembers(), loadProjects()]);
+      // Автообновление при изменениях в командах (через TeamsManagementPage)
+      const handler = (e) => {
+        const refreshOrgId = e?.detail?.organizationId
+        if (!refreshOrgId || Number(refreshOrgId) !== id) return
+        loadMembers()
+        loadProjects()
+      }
+      window.addEventListener('organization-data-refresh', handler)
+      onUnmounted(() => {
+        window.removeEventListener('organization-data-refresh', handler)
+      })
     });
 
     return {
-      id,
-
-      org, members, projects, tasks,
-      loadingOrg, loadingMembers, loadingProjects, loadingTasks,
+      org, members, projects,
+      loadingOrg, loadingMembers, loadingProjects,
       showInvite, inviting, onInviteSubmit,
-
-      // права
-      uid, toStr,
-      isParticipant, isOwner, isAdmin, canInvite, canManage, myRole,
-      membersCount,
-
-      // members
-      initials, removeMember, changeRole, memberRoles, canChangeRole,
-
-      // действия
-      onDelete, onLeave,
-
-      // edit
-      editMode, startEdit, cancelEdit, saveInfo, saving, editForm
-      ,
-      // helpers
-      formatDate,
-      getProjectStatusClass,
-      getTaskStatusClass,
-      getPriorityClass,
-      humanProjectStatus,
-      humanTaskStatus,
-      humanPriority,
-      dueClass,
-      taskLink,
-      getAvatarUrl
+      myRole, canInvite, canManage, canDelete, initials, removeMember, changeRole, deleteOrg,
+      normalizedWebsite, displayWebsite, telHref, membersCount
     };
   }
 };
 </script>
 
-<style scoped lang="scss">
-.orgs-scope {
-  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
-  .toolbar__edit { display:flex; gap:8px; align-items:center; }
-  .btn--danger { border-color: rgba(220,38,38,.3); color:#dc2626; }
-  .btn--danger:hover { background:#fee2e2; }
-
-  .name-stack > .input { display:block; margin-bottom:6px; }
-
-  .dl { display:grid; grid-template-columns: 1fr; gap: 12px; }
-  .dl > div { display:grid; grid-template-columns: 200px 1fr; gap: 12px; align-items:center; }
-  .dl .col-2 { grid-column: 1 / -1; }
-
-  /* Режим редактирования — аккуратная сетка */
-  .form-grid {
-    display:grid;
-    grid-template-columns: 200px 1fr;
-    gap: 12px 16px;
-    align-items:start;
-  }
-  .form-grid > label { display:grid; grid-template-columns: 200px 1fr; gap: 8px; align-items:center; }
-  .form-grid .col-span-2 { grid-column: 1 / -1; display:grid; grid-template-columns: 200px 1fr; gap: 8px; }
-  .form-grid .col-span-2 > textarea { grid-column: 2 / -1; min-height: 140px; }
-  .form-grid .col-span-2 > select { grid-column: 2 / -1; }
-
-  @media (max-width: 768px) {
-    .dl > div { grid-template-columns: 1fr; align-items: start; }
-    .form-grid, .form-grid .col-span-2 { grid-template-columns: 1fr; }
-    .form-grid > label > span, .form-grid .col-span-2 > span { margin-bottom: 6px; }
-  }
-}
-
-.input { width: 100%; padding: 8px 10px; border: 1px solid #3b3f3f; border-radius: 6px; background: transparent; color: inherit; }
-.input--sm { padding: 6px 8px; }
-.input--md { padding: 8px 10px; }
-.textarea { min-height: 110px; resize: vertical; }
+<style scoped>
+.pre-wrap { white-space: pre-wrap; }
 </style>

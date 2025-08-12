@@ -11,7 +11,7 @@
     env: Объект environ.Env для доступа к переменным окружения
 
 Использование:
-    from src.config.env import env
+    from config.env import env
     
     DEBUG = env.bool('DEBUG', default=False)
     SECRET_KEY = env.str('SECRET_KEY')
