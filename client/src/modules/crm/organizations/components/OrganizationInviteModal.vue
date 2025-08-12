@@ -22,7 +22,7 @@
             <select v-model="role" class="input">
               <option value="member">member</option>
               <option value="admin">admin</option>
-              <option value="viewer">viewer</option>
+              <option value="observer">observer</option>
             </select>
             <small class="muted">По умолчанию: {{ org?.default_role || 'member' }}</small>
           </label>
@@ -50,7 +50,7 @@ export default {
   data() {
     return {
       email: '',
-      role: this.org?.default_role && ['member', 'admin', 'viewer'].includes(this.org.default_role)
+      role: this.org?.default_role && ['member', 'admin', 'observer'].includes(this.org.default_role)
         ? this.org.default_role
         : 'member',
     };

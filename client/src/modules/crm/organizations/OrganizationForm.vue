@@ -68,7 +68,7 @@
         <label>Роль по умолчанию</label>
         <select v-model="form.default_role" class="select">
           <option value="member">member</option>
-          <option value="viewer">viewer</option>
+          <option value="observer">observer</option>
         </select>
       </div>
 
