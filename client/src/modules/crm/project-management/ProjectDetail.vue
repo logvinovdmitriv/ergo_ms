@@ -208,8 +208,8 @@
                             title="Исключить из команды">
                       <UserMinus :size="14" />
                     </button>
-                    <span v-else class="text-muted small" title="Нельзя исключить">
-                      <i class="fas fa-lock"></i>
+                    <span v-else class="text-muted small d-inline-flex align-items-center" title="Нельзя исключить">
+                      <Lock :size="14" />
                     </span>
                   </div>
                 </div>
@@ -244,6 +244,14 @@
               <ListTodo :size="16" v-else />
               <span>{{ showTaskTree ? 'Список' : 'Дерево' }}</span>
             </button>
+          <button class="btn btn-outline-secondary" @click="goToTasksList">
+            <ListTodo :size="16" />
+            <span>Список задач (общий)</span>
+          </button>
+            <button class="btn btn-outline-secondary" v-if="!showTaskTree" @click="focusTaskInTree()">
+              <GitBranch :size="16" />
+              <span>Показать выбранную задачу в дереве</span>
+            </button>
             <button class="btn btn-primary" @click="createTask">
               <Plus :size="16" />
               <span>Добавить задачу</span>
@@ -266,7 +274,7 @@
           <!-- Таблица задач или дерево -->
           <div v-else>
             <div v-if="showTaskTree" class="task-tree-container">
-              <ProjectTasksTree :project="project" :tasks="tasks" />
+              <ProjectTasksTree ref="tree" :project="project" :tasks="tasks" />
             </div>
             <div v-else class="tasks-table-container">
               <div class="table-responsive">
@@ -299,6 +307,11 @@
                           <span class="assignee-name">{{ getUserDisplayName(task.assignee) }}</span>
                         </div>
                         <span v-else class="no-assignee">Не назначен</span>
+                       <div v-if="task.assignee_roles && task.assignee_roles.length" class="mt-1 d-flex flex-wrap gap-1">
+                         <span v-for="link in task.assignee_roles" :key="link.user?.id + '-' + link.role" class="badge rounded-pill bg-light text-dark">
+                           {{ getUserDisplayName(link.user) }} — {{ getRoleText(link.role) }}
+                         </span>
+                       </div>
                       </td>
                       <td class="status-cell">
                         <span class="badge status-badge" :class="getTaskStatusClass(task.status)">
@@ -397,16 +410,6 @@
                 </div>
               </div>
               <div class="mb-3">
-                <label class="form-label">Организация</label>
-                <select class="form-select" v-model="currentProject.organization_id" :disabled="loadingOrganizations">
-                  <option :value="null">—</option>
-                  <option v-if="loadingOrganizations">Загрузка...</option>
-                  <option v-else v-for="org in organizations" :key="org.id" :value="org.id">
-                    {{ org.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="mb-3">
                 <label class="form-label">Цвет проекта</label>
                 <input type="color" class="form-control form-control-color" v-model="currentProject.color">
               </div>
@@ -434,75 +437,85 @@
           </div>
           <div class="modal-body">
             <form @submit.prevent="submitTask">
-              <div class="row">
-                <div class="col-md-8">
-                  <div class="mb-3">
-                    <label class="form-label">Название задачи *</label>
-                    <input type="text" class="form-control" v-model="currentTask.title" required>
-                  </div>
-                </div>
-                <div class="col-md-4">
-                  <div class="mb-3">
-                    <label class="form-label">Исполнитель</label>
-                    <select class="form-select" v-model="currentTask.assignee_id" :disabled="loadingUsers">
-                      <option value="">Не назначен</option>
-                      <option v-for="user in users" :key="user.id" :value="user.id">
-                        {{ getUserDisplayName(user) }}
-                      </option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              
               <div class="mb-3">
-                <label class="form-label">Описание</label>
-                <textarea class="form-control" rows="3" v-model="currentTask.description"></textarea>
+                <label class="form-label fw-bold d-flex align-items-center gap-2"><FileText :size="16" /> Название задачи <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" v-model="currentTask.title" required placeholder="Короткое и понятное название">
               </div>
-              
-              <div class="row">
-                <div class="col-md-6">
-                  <div class="mb-3">
-                    <label class="form-label">Статус</label>
-                    <select class="form-select" v-model="currentTask.status" :disabled="loadingStatuses">
-                      <option v-if="loadingStatuses">Загрузка...</option>
-                      <option v-else v-for="status in taskStatuses" :key="status.id" :value="status.code">
-                        {{ status.name }}
-                      </option>
-                    </select>
+
+              <div class="mb-3">
+                <label class="form-label fw-bold d-flex align-items-center gap-2"><GitBranch :size="16" /> Родительская задача</label>
+                <select class="form-select" v-model="currentTask.parent_id">
+                  <option value="">Без родительской задачи</option>
+                  <option v-for="task in availableParentTasks" :key="task.id" :value="task.id">
+                    {{ task.title }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-bold d-flex align-items-center gap-2"><Users :size="16" /> Исполнители</label>
+                <div v-if="(currentTask.assignee_ids||[]).length" class="mb-2 d-flex flex-wrap gap-2">
+                  <span v-for="uid in currentTask.assignee_ids" :key="`chip-${uid}`" class="assignee-chip">
+                    {{ getUserDisplayName(availableUsers.find(u => u.id === uid)) }}
+                  </span>
+                </div>
+                <input class="form-control mb-2" type="text" v-model="assigneesSearch" placeholder="Поиск по логину/ФИО" @input="filterAvailableUsers" />
+                <div class="border rounded p-2" style="max-height: 220px; overflow: auto;">
+                  <div class="form-check" v-for="user in filteredAvailableUsers" :key="`cb-${user.id}`">
+                    <input class="form-check-input" type="checkbox" :id="`assignee-${user.id}`" :value="user.id" v-model="currentTask.assignee_ids">
+                    <label class="form-check-label" :for="`assignee-${user.id}`">{{ getUserDisplayName(user) }}</label>
                   </div>
                 </div>
-                <div class="col-md-6">
-                  <div class="mb-3">
-                    <label class="form-label">Приоритет</label>
-                    <select class="form-select" v-model="currentTask.priority" :disabled="loadingStatuses">
-                      <option v-if="loadingStatuses">Загрузка...</option>
-                      <option v-else v-for="priority in taskPriorities" :key="priority.id" :value="priority.code">
-                        {{ priority.name }}
-                      </option>
-                    </select>
-                  </div>
+                <div class="mt-2">
+                  <label class="form-label">Основной исполнитель</label>
+                  <select class="form-select" v-model="currentTask.assignee_id" :disabled="!(currentTask.assignee_ids && currentTask.assignee_ids.length)">
+                    <option value="">Не назначен</option>
+                    <option v-for="uid in currentTask.assignee_ids" :key="`main-${uid}`" :value="uid">
+                      {{ getUserDisplayName(availableUsers.find(u => u.id === uid)) }}
+                    </option>
+                  </select>
                 </div>
               </div>
-              
-              <div class="row">
+
+              <div class="row g-3">
                 <div class="col-md-4">
-                  <div class="mb-3">
-                    <label class="form-label">Дата начала</label>
-                    <input type="datetime-local" class="form-control" v-model="currentTask.start_date">
-                  </div>
+                  <label class="form-label fw-bold d-flex align-items-center gap-2"><ListTodo :size="16" /> Статус</label>
+                  <select class="form-select" v-model="currentTask.status" :disabled="loadingStatuses">
+                    <option v-if="loadingStatuses">Загрузка...</option>
+                    <option v-else v-for="status in taskStatuses" :key="status.id" :value="status.code">
+                      {{ status.name }}
+                    </option>
+                  </select>
                 </div>
                 <div class="col-md-4">
-                  <div class="mb-3">
-                    <label class="form-label">Срок выполнения</label>
-                    <input type="datetime-local" class="form-control" v-model="currentTask.due_date">
-                  </div>
+                  <label class="form-label fw-bold d-flex align-items-center gap-2"><Flag :size="16" /> Приоритет</label>
+                  <select class="form-select" v-model="currentTask.priority" :disabled="loadingStatuses">
+                    <option v-if="loadingStatuses">Загрузка...</option>
+                    <option v-else v-for="priority in taskPriorities" :key="priority.id" :value="priority.code">
+                      {{ priority.name }}
+                    </option>
+                  </select>
                 </div>
                 <div class="col-md-4">
-                  <div class="mb-3">
-                    <label class="form-label">Оценка времени (часы)</label>
-                    <input type="number" class="form-control" step="0.5" v-model="currentTask.estimated_hours">
-                  </div>
+                  <label class="form-label fw-bold d-flex align-items-center gap-2"><Clock :size="16" /> Оценка, ч</label>
+                  <input type="number" class="form-control" step="0.5" v-model="currentTask.estimated_hours">
                 </div>
+              </div>
+
+              <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold d-flex align-items-center gap-2"><Calendar :size="16" /> Дата начала</label>
+                  <input type="datetime-local" class="form-control" v-model="currentTask.start_date">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold d-flex align-items-center gap-2"><Calendar :size="16" /> Срок выполнения</label>
+                  <input type="datetime-local" class="form-control" v-model="currentTask.due_date">
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <label class="form-label fw-bold d-flex align-items-center gap-2"><FileText :size="16" /> Описание</label>
+                <textarea class="form-control" rows="3" v-model="currentTask.description" placeholder="Коротко опишите задачу"></textarea>
               </div>
             </form>
           </div>
@@ -518,7 +531,7 @@
 
     <!-- Модальное окно управления командой -->
     <div class="modal fade" id="teamModal" tabindex="-1" aria-labelledby="teamModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="teamModalLabel">Управление командой проекта</h5>
@@ -548,11 +561,11 @@
                       <option value="observer">Наблюдатель</option>
                     </select>
                   </div>
-                  <button class="btn btn-primary" 
+                  <button class="btn btn-primary d-inline-flex align-items-center gap-2" 
                           @click="addMember" 
                           :disabled="!selectedUserId || loadingTeamAction">
-                    <i v-if="loadingTeamAction" class="fas fa-spinner fa-spin me-2"></i>
-                    Добавить в команду
+                    <Loader2 v-if="loadingTeamAction" class="me-1" :size="14" />
+                    <span>Добавить в команду</span>
                   </button>
                 </div>
               </div>
@@ -618,9 +631,8 @@
 
 <script>
 import { Modal } from 'bootstrap'
-import { Edit, Trash2, Plus, Home, Info, PieChart, ListTodo, Calendar, Clock, Users, CheckCircle, AlertTriangle, UserPlus, UserMinus, GitBranch } from 'lucide-vue-next'
+import { Edit, Trash2, Plus, Home, Info, PieChart, ListTodo, Calendar, Clock, Users, CheckCircle, AlertTriangle, UserPlus, UserMinus, GitBranch, FileText, Flag, Lock, Loader2 } from 'lucide-vue-next'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
-import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
 import ProjectTasksTree from './ProjectTasksTree.vue'
@@ -655,12 +667,16 @@ export default {
       error: null,
       project: null,
       tasks: [],
-      showTaskTree: false,
+      showTaskTree: true,
+      availableParentTasks: [],
       users: [],
+      assigneesSearch: '',
+      filteredAvailableUsers: [],
       currentTask: {
         title: '',
         description: '',
         assignee_id: '',
+        assignee_ids: [],
         status: 'todo',
         priority: 'medium',
         start_date: '',
@@ -675,8 +691,7 @@ export default {
         end_date: '',
         status: 'planning',
         priority: 'medium',
-        color: '#007bff',
-        organization_id: null
+        color: '#007bff'
       },
       isEditingTask: false,
       isEditingProject: false,
@@ -686,9 +701,6 @@ export default {
       taskStatuses: [],
       taskPriorities: [],
       loadingStatuses: false,
-      organizations: [],
-      loadingOrganizations: false,
-      loadingUsers: false,
       // Управление командой проекта
       selectedUserId: '',
       selectedRole: 'member',
@@ -696,35 +708,35 @@ export default {
     }
   },
   async mounted() {
-    await this.loadStatusesAndPriorities()
+    await Promise.all([
+      this.loadUsers(),
+      this.loadStatusesAndPriorities()
+    ])
     await this.loadProjectData()
+    // если пришёл запрос сфокусировать задачу в дереве
+    const focusId = this.$route.query.focusTaskId
+    if (focusId) {
+      const t = this.tasks.find(x => String(x.id) === String(focusId)) || { id: focusId }
+      await this.focusTaskInTree(t)
+    }
   },
   computed: {
     availableUsers() {
       if (!this.users || !this.project) return []
-      
-      // Исключаем пользователей, которые уже в команде
+      // показываем только участников проекта/команды
       const teamUserIds = new Set()
-      
-      // Добавляем владельца и менеджера (с проверкой на существование)
       if (this.project?.owner?.id) teamUserIds.add(this.project.owner.id)
       if (this.project?.manager?.id) teamUserIds.add(this.project.manager.id)
-      
-      // Добавляем участников команды
       if (this.project?.memberships && Array.isArray(this.project.memberships)) {
-        this.project.memberships.forEach(member => {
-          if (member && 
-              typeof member === 'object' && 
-              member.user && 
-              typeof member.user === 'object' && 
-              member.user.id) {
-            teamUserIds.add(member.user.id)
-          }
-        })
+        this.project.memberships.forEach(m => m?.user?.id && teamUserIds.add(m.user.id))
       }
-      
-      // Возвращаем пользователей, которых нет в команде
-      return this.users.filter(user => user?.id && !teamUserIds.has(user.id))
+      return this.users.filter(u => u?.id && teamUserIds.has(u.id))
+    },
+    // триггер для синхронизации от availableUsers
+    availableUsersSyncTrigger() {
+      // при каждом пересчёте availableUsers — пересобираем фильтрованную выборку
+      this.filteredAvailableUsers = this.availableUsers
+      return true
     },
 
     allTeamMembers() {
@@ -842,14 +854,46 @@ export default {
   watch: {
     '$route'() {
       this.loadProjectData()
-    },
-    'project.organization.id'() {
-      this.loadUsers()
     }
   },
   methods: {
     toggleTaskView() {
       this.showTaskTree = !this.showTaskTree
+      if (this.showTaskTree) {
+        // при включении дерева подгружаем его с API
+        this.loadProjectTree()
+      } else {
+        // возвращаемся к списку задач проекта
+        this.loadProjectData()
+      }
+    },
+    goToTasksList() {
+      // Переход на общий список задач (табличный режим) с фильтром по проекту
+      if (this.project?.id) {
+        this.$router.push({ path: '/crm/project-management/tasks', query: { projectFilter: this.project.id } })
+      } else {
+        this.$router.push('/crm/project-management/tasks')
+      }
+    },
+    async focusTaskInTree(task = null) {
+      try {
+        if (!this.project?.id) return
+        const t = task || this.selectedTask || this.tasks?.[0]
+        if (!t?.id) return
+        // получаем путь от корня до задачи
+        const res = await projectManagementApi.client.get(`/crm/tasks/${t.id}/path/`)
+        const path = (res.data?.path || []).map(n => n.id)
+        this.showTaskTree = true
+        // дождаться рендера дерева
+        this.$nextTick(async () => {
+          const tree = this.$refs.tree
+          if (tree && typeof tree.expandPathTo === 'function') {
+            await tree.expandPathTo(path)
+          }
+        })
+      } catch (e) {
+        console.error('Не удалось выделить задачу в дереве', e)
+      }
     },
     async loadProjectData() {
       const projectId = this.$route.params.id
@@ -862,15 +906,30 @@ export default {
       this.error = null
 
       try {
-        // Загружаем данные проекта
-        const response = await projectManagementApi.getProject(projectId)
-        this.project = response.data
-        await this.loadUsers()
+        // Загружаем проект и задачи параллельно
+         const [projectRes, tasksRes] = await Promise.all([
+           projectManagementApi.getProject(projectId),
+           projectManagementApi.getProjectTasks(projectId),
+         ])
+         this.project = projectRes.data
+         this.tasks = Array.isArray(tasksRes.data) ? tasksRes.data.filter(t => t && t.id) : []
+        // После загрузки проекта ограничим доступных пользователей командой
+        const teamUserIds = new Set()
+        if (this.project?.owner?.id) teamUserIds.add(this.project.owner.id)
+        if (this.project?.manager?.id) teamUserIds.add(this.project.manager.id)
+        if (Array.isArray(this.project?.memberships)) {
+          this.project.memberships.forEach(m => m?.user?.id && teamUserIds.add(m.user.id))
+        }
+        const allowed = this.users.filter(u => u?.id && teamUserIds.has(u.id))
+        // Сжать выбранные значения под разрешённых
+        const allowedIds = new Set(allowed.map(u => u.id))
+        this.currentTask.assignee_ids = (this.currentTask.assignee_ids || []).filter(id => allowedIds.has(id))
+        if (this.currentTask.assignee_id && !allowedIds.has(this.currentTask.assignee_id)) {
+          this.currentTask.assignee_id = ''
+        }
+        // Фоновая подгрузка ролей исполнителей, чтобы не блокировать интерфейс
+        this.enrichAssigneeRolesInBatches(this.tasks, 8)
 
-        // Загружаем задачи проекта
-        const tasksResponse = await projectManagementApi.getProjectTasks(projectId)
-        this.tasks = Array.isArray(tasksResponse.data) ? tasksResponse.data.filter(task => task && task.id) : []
-        
         // Обновляем прогресс проекта
         this.updateProjectProgress()
       } catch (error) {
@@ -881,43 +940,68 @@ export default {
       }
     },
 
-    async loadUsers() {
-      this.loadingUsers = true
+    async enrichAssigneeRolesInBatches(tasks, concurrency = 6) {
       try {
-        if (this.project?.organization?.id) {
-          const resp = await OrganizationApi.getOrganizationMembers(this.project.organization.id)
-          const members = Array.isArray(resp.data.results) ? resp.data.results : (resp.data || [])
-          this.users = members.map(m => m.user || m).filter(u => u && u.id)
-        } else {
-          const response = await projectManagementApi.getUsers()
-          const users = Array.isArray(response.data.results) ? response.data.results :
-                        (Array.isArray(response.data) ? response.data : [])
-          this.users = users.filter(user => user && user.id)
+        const queue = (tasks || []).filter(t => t && t.id)
+        let index = 0
+        const runWorker = async () => {
+          while (index < queue.length) {
+            const cur = queue[index++]
+            try {
+              const res = await projectManagementApi.getTaskAssignees(cur.id)
+              cur.assignee_roles = Array.isArray(res.data) ? res.data : []
+            } catch (_) {
+              cur.assignee_roles = []
+            }
+          }
         }
-      } catch (error) {
-        console.error('Ошибка загрузки пользователей:', error)
-        alert(error?.response?.data?.detail || 'Ошибка')
-        this.users = []
-      } finally {
-        this.loadingUsers = false
+        const workers = Array.from({ length: Math.max(1, concurrency) }, runWorker)
+        await Promise.allSettled(workers)
+      } catch (e) {
+        console.error('Ошибка подгрузки ролей исполнителей', e)
       }
     },
 
-    async loadOrganizations() {
-      this.loadingOrganizations = true
+    async loadProjectTree() {
+      if (!this.project?.id) return
       try {
-        const res = await OrganizationApi.getMyOrganizations()
-        const data = Array.isArray(res.data?.results)
-          ? res.data.results
-          : (Array.isArray(res.data) ? res.data : [])
-        this.organizations = data
+        const url = `/crm/tasks/project_tree/` // baseURL уже содержит /api
+        const res = await projectManagementApi.client.get(url, { params: { project_id: this.project.id } })
+        const tree = res.data?.tree || []
+        // Преобразуем дерево в плоский список для текущих компонентов, если нужно
+        // Пока просто сохраняем как есть для ProjectTasksTree
+        this.tasks = tree
       } catch (e) {
-        console.error('Ошибка загрузки организаций:', e)
-        alert(e?.response?.data?.detail || 'Ошибка')
-        this.organizations = []
-      } finally {
-        this.loadingOrganizations = false
+        console.error('Ошибка загрузки дерева задач проекта', e)
       }
+    },
+
+    async loadUsers() {
+      try {
+        const response = await projectManagementApi.getUsers()
+        const users = Array.isArray(response.data.results) ? response.data.results : 
+                      Array.isArray(response.data) ? response.data : []
+        
+        // Фильтруем только валидных пользователей
+        this.users = users.filter(user => user && user.id)
+        this.filteredAvailableUsers = this.availableUsers
+      } catch (error) {
+        console.error('Ошибка загрузки пользователей:', error)
+        this.users = []
+      }
+    },
+    filterAvailableUsers() {
+      const q = (this.assigneesSearch || '').toLowerCase().trim()
+      const source = this.availableUsers || []
+      if (!q) {
+        this.filteredAvailableUsers = source
+        return
+      }
+      this.filteredAvailableUsers = source.filter(u => {
+        const login = (u.username || '').toLowerCase()
+        const full = (u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim()).toLowerCase()
+        return login.includes(q) || full.includes(q)
+      })
     },
 
     async loadStatusesAndPriorities() {
@@ -979,11 +1063,10 @@ export default {
       }
     },
 
-    async editProject() {
+    editProject() {
       if (!this.project) return
-
+      
       this.isEditingProject = true
-      await this.loadOrganizations()
       this.currentProject = {
         id: this.project.id,
         name: this.project.name,
@@ -992,18 +1075,15 @@ export default {
         end_date: this.project.end_date || '',
         status: this.project.status,
         priority: this.project.priority,
-        color: this.project.color,
-        organization_id: this.project.organization?.id ?? null
+        color: this.project.color
       }
-
+      
       const modal = new Modal(document.getElementById('projectModal'))
       modal.show()
     },
 
     async createTask(parentTask = null) {
       if (!this.project) return
-
-      await this.loadUsers()
 
       // Устанавливаем значения по умолчанию из загруженных данных
       const defaultTaskStatus = this.taskStatuses.find(s => s.is_default) || this.taskStatuses[0]
@@ -1015,6 +1095,7 @@ export default {
         description: '',
         project_id: this.project.id,
         assignee_id: '',
+        assignee_ids: [],
         status: defaultTaskStatus ? defaultTaskStatus.code : 'todo',
         priority: defaultTaskPriority ? defaultTaskPriority.code : 'medium',
         start_date: '',
@@ -1022,7 +1103,7 @@ export default {
         estimated_hours: null,
         parent_id: parentTask ? parentTask.id : null
       }
-
+      await this.loadAvailableParentTasks()
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
     },
@@ -1033,13 +1114,13 @@ export default {
 
     async editTask(task) {
       this.isEditingTask = true
-      await this.loadUsers()
       this.currentTask = {
         id: task.id,
         title: task.title,
         description: task.description,
         project_id: task.project?.id || this.project.id,
         assignee_id: task.assignee?.id || '',
+        assignee_ids: (task.assignees || []).map(u => u.id),
         status: task.status,
         priority: task.priority,
         start_date: task.start_date ? this.formatDateTimeLocal(new Date(task.start_date)) : '',
@@ -1047,9 +1128,22 @@ export default {
         estimated_hours: task.estimated_hours,
         parent_id: task.parent || null
       }
-
+      await this.loadAvailableParentTasks(task.id)
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
+    },
+
+    async loadAvailableParentTasks(excludeTaskId = null) {
+      try {
+        const resp = await projectManagementApi.getTasks({ project_id: this.project?.id })
+        const list = resp.data.results || resp.data || []
+        this.availableParentTasks = Array.isArray(list)
+          ? list.filter(t => (excludeTaskId ? t.id !== excludeTaskId : true))
+          : []
+      } catch (e) {
+        console.error('Ошибка загрузки доступных родительских задач', e)
+        this.availableParentTasks = []
+      }
     },
 
     deleteTask(task) {
@@ -1063,8 +1157,7 @@ export default {
           ...this.currentProject,
           // Конвертируем пустые строки в null для дат
           start_date: this.currentProject.start_date || null,
-          end_date: this.currentProject.end_date || null,
-          organization_id: this.currentProject.organization_id ?? null
+          end_date: this.currentProject.end_date || null
         }
         
         await projectManagementApi.updateProject(projectData.id, projectData)
@@ -1107,11 +1200,56 @@ export default {
 
     async submitTask() {
       try {
+        // Клиентская проверка дублей в проекте и ветке
+        const title = (this.currentTask.title || '').trim()
+        if (title && this.project?.id) {
+          try {
+            const resp = await projectManagementApi.getTasks({ project_id: this.project.id })
+            const list = resp.data.results || resp.data || []
+            const parentId = this.currentTask.parent_id || null
+            const norm = (s) => (s || '').toString().trim().replace(/\s+/g,' ').toLowerCase()
+            const target = norm(title)
+            const isDuplicate = list.some(t => {
+              const sameBranch = (parentId ? (t.parent === parentId || t.parent_id === parentId) : (!t.parent && !t.parent_id))
+              if (!sameBranch) return false
+              return norm(t.title) === target && (!this.isEditingTask || t.id !== this.currentTask.id)
+            })
+            if (isDuplicate) {
+              this.showError('Задача с таким названием уже существует в этом проекте/ветке')
+              return
+            }
+          } catch (_) {}
+        }
+        // Гарантируем, что все выбранные исполнители состоят в команде проекта
+        if (!this.isEditingTask && this.project?.id && Array.isArray(this.currentTask?.assignee_ids) && this.currentTask.assignee_ids.length) {
+          try {
+            const projectResp = await projectManagementApi.getProject(this.project.id)
+            const project = projectResp.data
+            const teamUserIds = new Set()
+            if (project?.owner?.id) teamUserIds.add(project.owner.id)
+            if (project?.manager?.id) teamUserIds.add(project.manager.id)
+            if (Array.isArray(project?.memberships)) {
+              project.memberships.forEach(m => m?.user?.id && teamUserIds.add(m.user.id))
+            }
+            for (const uid of this.currentTask.assignee_ids) {
+              if (!teamUserIds.has(uid)) {
+                if (project?.team?.id) {
+                  await projectManagementApi.addTeamMember(project.team.id, { user_id: uid, role: 'member' })
+                }
+                await projectManagementApi.addProjectMember(this.project.id, { user_id: uid, role: 'member' })
+                teamUserIds.add(uid)
+              }
+            }
+          } catch (e) {
+            // noop — сервер всё равно провалидирует
+          }
+        }
         // Подготавливаем данные задачи, конвертируя пустые строки в null
         const taskData = {
           ...this.currentTask,
           project_id: this.currentTask.project_id || null,
           assignee_id: this.currentTask.assignee_id || null,
+          assignee_ids: this.currentTask.assignee_ids || [],
           start_date: this.currentTask.start_date || null,
           due_date: this.currentTask.due_date || null,
           estimated_hours: this.currentTask.estimated_hours || null,
@@ -1128,8 +1266,9 @@ export default {
         const modal = Modal.getInstance(document.getElementById('taskModal'))
         if (modal) modal.hide()
         
-        // Перезагружаем данные проекта
+        // Перезагружаем данные проекта и дерево
         await this.loadProjectData()
+        await this.loadProjectTree()
         
         this.showSuccess(this.isEditingTask ? 'Задача обновлена' : 'Задача создана')
       } catch (error) {
@@ -1349,11 +1488,12 @@ export default {
 
       this.loadingTeamAction = true
       try {
-        const memberData = {
-          user_id: this.selectedUserId,
-          role: this.selectedRole
+        const memberData = { user_id: this.selectedUserId, role: this.selectedRole }
+        // если у проекта есть команда — синхронизируем: добавляем в команду
+        if (this.project?.team?.id) {
+          await projectManagementApi.addTeamMember(this.project.team.id, { user_id: this.selectedUserId, role: 'member' })
         }
-
+        // затем — в проект
         const response = await projectManagementApi.addProjectMember(this.project.id, memberData)
         
         // Обновляем только данные команды
@@ -1522,6 +1662,21 @@ export default {
     gap: 0.75rem;
     margin-left: 2rem;
   }
+}
+
+// Чипы выбранных исполнителей внутри модалки
+.assignee-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  background: var(--bs-gray-200);
+  color: var(--bs-heading-color);
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+[data-bs-theme='dark'] .assignee-chip {
+  background: rgba(255,255,255,0.12);
+  color: #e9ecf1;
 }
 
 // Хлебные крошки

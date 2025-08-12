@@ -2,6 +2,7 @@
   <section class="card">
     <header class="card__header">
       <h2 class="card__title">Новая организация</h2>
+      <div class="muted">Заполните основные сведения. Имя и сайт — самые важные для начала.</div>
     </header>
 
     <form class="card__body form-grid" @submit.prevent="save">
@@ -11,9 +12,9 @@
       </div>
 
       <div class="form-row">
-        <label>Slug</label>
+        <label>Адрес (slug)</label>
         <input v-model.trim="form.slug" class="input" placeholder="romashka" />
-        <small class="muted">Генерируется из Названия, можно поправить у владельца</small>
+        <small class="muted">Автогенерируется из названия, можно изменить.</small>
       </div>
 
       <div class="form-row">
@@ -24,6 +25,7 @@
       <div class="form-row">
         <label>Сайт</label>
         <input v-model.trim="form.website" class="input" type="url" placeholder="https://example.com" />
+        <small class="muted">Укажите корпоративный сайт (опционально)</small>
       </div>
 
       <div class="form-row">
@@ -44,6 +46,7 @@
       <div class="form-row">
         <label>Часовой пояс</label>
         <input v-model.trim="form.timezone" class="input" placeholder="Europe/Moscow" />
+        <small class="muted">Например: Europe/Moscow</small>
       </div>
 
       <div class="form-row">
@@ -82,7 +85,7 @@
 
       <div class="form-row col-2">
         <div>
-          <label>Billing name</label>
+        <label>Плательщик (Billing name)</label>
           <input v-model.trim="form.billing_name" class="input" />
         </div>
         <div>
@@ -92,12 +95,12 @@
       </div>
 
       <div class="form-row">
-        <label>Billing address</label>
+        <label>Платёжный адрес (Billing address)</label>
         <input v-model.trim="form.billing_address" class="input" />
       </div>
 
       <footer class="form-actions">
-        <button class="btn btn--primary" type="submit" :disabled="saving">Создать</button>
+        <button class="btn btn--primary" type="submit" :disabled="!canSubmit || saving">Создать</button>
         <router-link class="btn btn--ghost" :to="{ name: 'OrganizationList' }">Отмена</router-link>
       </footer>
     </form>
@@ -105,15 +108,17 @@
 </template>
 
 <script>
-import { reactive, watch } from 'vue';
+import { reactive, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import OrganizationApi from './js/organizationApi.js';
+import { useToast } from 'vue-toastification';
 
 export default {
   name: 'OrganizationForm',
   setup() {
     const router = useRouter();
     const saving = false;
+    const toast = useToast();
     const form = reactive({
       name: '', slug: '', description: '',
       website: '', email: '', phone: '',
@@ -131,12 +136,25 @@ export default {
       if (!slugTouched) form.slug = (val || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     });
 
+    const canSubmit = computed(() => !!form.name && !!form.visibility && !!form.status);
+
     const save = async () => {
+      // Клиентская защита от дублей имен (нормализация)
+      try {
+        const res = await OrganizationApi.getOrganizations();
+        const list = res.data.results || res.data || [];
+        const norm = (s) => (s || '').toString().trim().replace(/\s+/g,' ').toLowerCase();
+        const exists = list.some(o => norm(o.name) === norm(form.name));
+        if (exists) {
+          toast.error('Организация с таким названием уже существует');
+          return;
+        }
+      } catch (_) {}
       await OrganizationApi.createOrganization({ ...form });
       router.push({ name: 'OrganizationList' });
     };
 
-    return { form, save, saving };
+    return { form, save, saving, canSubmit };
   }
 };
 </script>

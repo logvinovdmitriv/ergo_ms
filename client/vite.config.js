@@ -2,7 +2,7 @@ import { fileURLToPath, URL } from 'node:url' // Импорт функций д�
 
 import vue from '@vitejs/plugin-vue' // Импорт плагина Vue для Vite
 import { defineConfig } from 'vite' // Импорт функции для определения конфигурации Vite
-import vueDevTools from 'vite-plugin-vue-devtools' // Импорт плагина Vue DevTools для Vite
+// import vueDevTools from 'vite-plugin-vue-devtools' // Импорт плагина Vue DevTools для Vite
 
 import dotenv from 'dotenv'
 import path from 'path'
@@ -17,7 +17,7 @@ export default defineConfig({
   // Подключение плагинов
   plugins: [
     vue(), // Подключение плагина Vue для Vite
-    //vueDevTools(), // Подключение плагина Vue DevTools для Vite
+    // vueDevTools(), // Подключение плагина Vue DevTools для Vite
   ],
 
   // Настройка разрешения путей
@@ -47,9 +47,5 @@ export default defineConfig({
     https: false, // Отключение HTTPS для сервера разработки
   },
 
-  // Экспорт переменных окружения в клиентский код
-  define: {
-    'import.meta.env.VITE_API_HOST': JSON.stringify(process.env.API_HOST),
-    'import.meta.env.VITE_API_PORT': JSON.stringify(process.env.API_PORT),
-  },
+  // Переменные VITE_* будут автоматически подставлены Vite (не переопределяем)
 })

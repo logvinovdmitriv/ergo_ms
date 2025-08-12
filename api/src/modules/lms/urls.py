@@ -2,18 +2,13 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from src.modules.lms.views import (
     AnalyticsViewSet, UserProfileViewSet, CourseCategoryViewSet,
-    CourseFormatViewSet, SubjectViewSet, EnrollmentViewSet,
-    ThemeViewSet, LessonViewSet, ResourceViewSet, ForumViewSet, ForumDiscussionViewSet,
+    CourseFormatViewSet, SubjectViewSet, EnrollmentViewSet, 
+    ThemeViewSet, LessonViewSet, ResourceViewSet, ForumViewSet, ForumDiscussionViewSet, 
     ForumPostViewSet, TestBankViewSet, TestViewSet, TestAttemptViewSet,
     AssignmentViewSet, SubmittedAssignmentViewSet,
-    CalendarEventViewSet, UserBadgeViewSet,
+    CalendarEventViewSet, BadgeViewSet, UserBadgeViewSet,
     NotificationViewSet, PrivateMessageViewSet, UserRoleViewSet,
-    QuestionViewSet, AnswerViewSet, LessonItemViewSet,
-    LmsStatsViewSet,
-    StudentStatsView,
-    TeacherStatsView,
-    BadgesSummaryView,
-    UserBadgesView,
+    QuestionViewSet, AnswerViewSet, LessonItemViewSet
 )
 
 # Создаем роутер для API
@@ -41,11 +36,11 @@ router.register(r'test-attempts', TestAttemptViewSet, basename='testattempt')
 router.register(r'assignments', AssignmentViewSet, basename='assignment')
 router.register(r'submitted-assignments', SubmittedAssignmentViewSet, basename='submittedassignment')
 router.register(r'calendar', CalendarEventViewSet, basename='calendarevent')
+router.register(r'badges', BadgeViewSet, basename='badge')
 router.register(r'user-badges', UserBadgeViewSet, basename='userbadge')
 router.register(r'notifications', NotificationViewSet, basename='notification')
 router.register(r'messages', PrivateMessageViewSet, basename='privatemessage')
 router.register(r'analytics', AnalyticsViewSet, basename='analytics')
-router.register(r'stats', LmsStatsViewSet, basename='lms-stats')
 
 urlpatterns = [
     # API endpoints
@@ -55,15 +50,7 @@ urlpatterns = [
     path('analytics/student/', AnalyticsViewSet.as_view({'get': 'student_stats'}), name='student-analytics'),
     path('analytics/teacher/', AnalyticsViewSet.as_view({'get': 'teacher_stats'}), name='teacher-analytics'),
     path('analytics/dashboard/', AnalyticsViewSet.as_view({'get': 'dashboard'}), name='dashboard'),
-    path('analytics/achievements/progress/', AnalyticsViewSet.as_view({'get': 'achievements_progress'}), name='achievements-progress'),
-    path('achievements/summary/', AnalyticsViewSet.as_view({'get': 'achievements_summary'}), name='achievements-summary'),
-    path('achievements/leaderboard/', AnalyticsViewSet.as_view({'get': 'achievements_leaderboard'}), name='achievements-leaderboard'),
     path('analytics/debug-lessons/', AnalyticsViewSet.as_view({'get': 'debug_lessons'}), name='debug-lessons'),
-
-    path('stats/student/', StudentStatsView.as_view(), name='lms-stats-student'),
-    path('stats/teacher/', TeacherStatsView.as_view(), name='lms-stats-teacher'),
-    path('badges/', UserBadgesView.as_view(), name='lms-badges'),
-    path('badges/summary/', BadgesSummaryView.as_view(), name='lms-badges-summary'),
     
     # Endpoints для профиля
     path('profile/me/', UserProfileViewSet.as_view({'get': 'my_profile', 'patch': 'my_profile'}), name='my-profile'),

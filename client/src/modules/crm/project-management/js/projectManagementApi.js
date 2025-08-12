@@ -54,16 +54,8 @@ class ProjectManagementApi {
         return await this.client.delete(`/crm/projects/${id}/`);
     }
 
-    async bulkDeleteProjects(ids) {
-        return await this.client.delete('/crm/projects/bulk-delete/', { data: { ids } });
-    }
-
-    async bulkUpdateProjects(data) {
-        return await this.client.patch('/crm/projects/bulk-update/', data);
-    }
-
-    async getProjectTasks(projectId, params = {}) {
-        return await this.client.get(`/crm/projects/${projectId}/tasks/`, { params });
+    async getProjectTasks(projectId) {
+        return await this.client.get(`/crm/projects/${projectId}/tasks/`);
     }
 
     async getProjectStatistics(projectId) {
@@ -78,6 +70,31 @@ class ProjectManagementApi {
         return await this.client.delete(`/crm/projects/${projectId}/remove_member/`, {
             data: { user_id: userId }
         });
+    }
+
+    // КОМАНДЫ
+    async getTeams(params = {}) {
+        return await this.client.get('/crm/teams/', { params })
+    }
+    async getTeam(id) {
+        return await this.client.get(`/crm/teams/${id}/`)
+    }
+    async createTeam(data) {
+        return await this.client.post('/crm/teams/', data)
+    }
+    async updateTeam(id, data) {
+        return await this.client.patch(`/crm/teams/${id}/`, data)
+    }
+    async deleteTeam(id) {
+        return await this.client.delete(`/crm/teams/${id}/`)
+    }
+    async addTeamMember(teamId, data) {
+        // backend action: /crm/teams/<id>/add_member/
+        return await this.client.post(`/crm/teams/${teamId}/add_member/`, data)
+    }
+    async removeTeamMember(teamId, userId) {
+        // backend action: /crm/teams/<id>/remove_member/ (expects user_id in body)
+        return await this.client.delete(`/crm/teams/${teamId}/remove_member/`, { data: { user_id: userId } })
     }
 
     // ЗАДАЧИ
@@ -101,23 +118,9 @@ class ProjectManagementApi {
         return await this.client.delete(`/crm/tasks/${id}/`);
     }
 
-    // ===== TASKS: BULK =====
-    async bulkUpdateTasks(payload) {
-        // payload: { ids: number[], status?, priority?, assignee_id?, clear_assignee?, due_date?, project_id? }
-        // Предпочтительно единый bulk endpoint:
-        // return await this.client.post('/crm/project-management/tasks/bulk-update/', payload)
-
-        // Fallback поштучно, если bulk эндпоинт недоступен
-        const { ids, ...patch } = payload;
-        const reqs = ids.map(id => this.client.patch(`/crm/tasks/${id}/`, patch));
-        return Promise.all(reqs);
-    }
-
-    async bulkDeleteTasks(ids) {
-        // return await this.client.post('/crm/project-management/tasks/bulk-delete/', { ids })
-        const reqs = ids.map(id => this.client.delete(`/crm/tasks/${id}/`));
-        return Promise.all(reqs);
-    }
+  async getTaskAssignees(taskId) {
+      return await this.client.get(`/crm/tasks/${taskId}/assignees/`)
+  }
 
     async changeTaskStatus(taskId, status) {
         return await this.client.post(`/crm/tasks/${taskId}/change_status/`, { status });

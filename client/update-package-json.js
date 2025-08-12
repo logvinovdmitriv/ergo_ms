@@ -2,15 +2,8 @@
 import fs from 'fs';
 import path from 'path';
 
-// Путь к файлу vite.config.js
-const viteConfigPath = path.resolve(process.cwd(), 'vite.config.js');
-const viteConfigUrl = new URL(`file://${viteConfigPath}`);
-
-// Чтение конфигурации Vite
-const viteConfig = await import(viteConfigUrl);
-
-// Получение порта из конфигурации Vite
-const port = viteConfig.default.server.port;
+// Избегаем импорта vite/rollup на ARM. Берем порт из env либо по умолчанию
+const port = process.env.PORT || 8001;
 
 // Путь к файлу package.json
 const packageJsonPath = path.resolve(process.cwd(), 'package.json');

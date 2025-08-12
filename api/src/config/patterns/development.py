@@ -7,8 +7,8 @@
 
 from celery.schedules import crontab
 
-from src.config.patterns.local import *
-from src.config.env import env
+from config.patterns.local import *
+from config.env import env
 
 SECRET_KEY = env.str('API_SECRET_KEY')
 
@@ -16,7 +16,7 @@ DEBUG = True
 
 CELERY_BEAT_SCHEDULE = {
     'sync-every-5-minutes': {
-        'task': 'src.modules.bi_analysis.tasks.sync_data_from_sources',
+        'task': 'modules.bi_analysis.tasks.sync_data_from_sources',
         'schedule': crontab(minute='*/5'),
     },
 }

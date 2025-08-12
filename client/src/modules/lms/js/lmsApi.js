@@ -2,12 +2,6 @@ import { apiClient } from '../../../js/api/manager'
 import { endpoints } from '../../../js/api/endpoints'
 
 export const lmsApi = {
-  async get(path, params = {}) {
-    const qs = new URLSearchParams(params).toString()
-    const url = `${endpoints.lms.base}${path}${qs ? `?${qs}` : ''}`
-    return apiClient.get(url)
-  },
-
   // Курсы
   async getCourses() {
     return await apiClient.get(endpoints.lms.subjects)
@@ -127,27 +121,6 @@ export const lmsApi = {
     })
   },
 
-  // Достижения
-  getAchievementsSummary(params) {
-    return apiClient.get(endpoints.lms.achievementsSummary, { params })
-  },
-  getAchievementsLeaderboard(params) {
-    return apiClient.get(endpoints.lms.achievementsLeaderboard, { params })
-  },
-
-  getStudentStats(params) {
-    return apiClient.get('/api/lms/stats/student', { params })
-  },
-  getTeacherStats(params) {
-    return apiClient.get('/api/lms/stats/teacher', { params })
-  },
-  getStats(params) {
-    return apiClient.get('/api/lms/stats', { params })
-  },
-  getBadges(params) {
-    return apiClient.get('/api/lms/badges', { params })
-  },
-  
   // Статистика студента
   async getStudentStats() {
     try {

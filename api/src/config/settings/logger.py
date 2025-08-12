@@ -8,7 +8,11 @@ import os
 from src.config.settings.static import LOGS_ROOT
 
 import warnings
-from sklearn.exceptions import InconsistentVersionWarning
+try:
+    from sklearn.exceptions import InconsistentVersionWarning
+except Exception:  # optional in container
+    class InconsistentVersionWarning(Warning):
+        pass
 
 # Отключаем предупреждения scikit-learn о несовместимости версий
 warnings.filterwarnings("ignore", category=InconsistentVersionWarning)

@@ -2,7 +2,8 @@
   <div class="page orgs-scope">
     <header class="page__header">
       <div>
-        <h1 class="page__title">Организации</h1>
+        <h1 class="page__title">Управление организациями</h1>
+        <div class="muted">Организации, приглашения и команды</div>
       </div>
     </header>
 
@@ -18,6 +19,12 @@
         class="tabs__link"
         :class="{ 'is-active': $route.path.startsWith('/crm/invites') }"
       >Приглашения</router-link>
+      
+      <router-link
+        to="/crm/organizations/teams"
+        class="tabs__link"
+        :class="{ 'is-active': $route.path.startsWith('/crm/organizations/teams') }"
+      >Команды</router-link>
     </nav>
 
     <main class="page__content">

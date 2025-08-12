@@ -369,7 +369,6 @@
 <script>
 import { Modal } from 'bootstrap'
 import projectManagementApi from '@/modules/crm/project-management/js/projectManagementApi.js'
-import OrganizationApi from '@/modules/crm/organizations/js/organizationApi.js'
 import { useNotifications } from '@/modules/lms/composables/useNotifications'
 import { getAvatarUrl } from '@/modules/cms/js/avatarUtils.js'
 
@@ -440,18 +439,12 @@ export default {
     },
 
   },
-
-  watch: {
-    'currentTask.project_id'(val) {
-      this.loadUsersForProject(val)
-    }
-  },
-
+  
       async mounted() {
     console.log('KanbanBoard mounted')
     
     await this.loadProjects()
-    await this.loadAllUsers()
+    await this.loadUsers()
     await this.loadTaskStatuses()  // Теперь это также инициализирует колонки
     await this.loadTaskPriorities()
     this.loadKanbanData()
@@ -505,32 +498,12 @@ export default {
       }
     },
     
-    async loadAllUsers() {
+    async loadUsers() {
       try {
         const response = await projectManagementApi.getUsers()
-        this.users = Array.isArray(response.data) ? response.data : (response.data?.results || [])
+        this.users = Array.isArray(response.data) ? response.data : []
       } catch (error) {
         console.error('Ошибка загрузки пользователей:', error)
-        this.users = []
-      }
-    },
-
-    async loadUsersForProject(projectId) {
-      try {
-        if (projectId) {
-          const proj = this.projects.find(p => p.id === projectId)
-          const orgId = proj?.organization?.id
-          if (orgId) {
-            const resp = await OrganizationApi.getOrganizationMembers(orgId)
-            const members = Array.isArray(resp.data.results) ? resp.data.results : (resp.data || [])
-            this.users = members.map(m => m.user || m).filter(u => u && u.id)
-            return
-          }
-        }
-        await this.loadAllUsers()
-      } catch (error) {
-        console.error('Ошибка загрузки пользователей:', error)
-        alert(error?.response?.data?.detail || 'Ошибка')
         this.users = []
       }
     },
@@ -859,10 +832,9 @@ export default {
         due_date: '',
         estimated_hours: null
       }
-      this.loadUsersForProject(this.currentTask.project_id).then(() => {
-        const modal = new Modal(document.getElementById('taskModal'))
-        modal.show()
-      })
+      
+      const modal = new Modal(document.getElementById('taskModal'))
+      modal.show()
     },
 
     createTaskForStatus(status) {
@@ -881,10 +853,9 @@ export default {
         due_date: '',
         estimated_hours: null
       }
-      this.loadUsersForProject(this.currentTask.project_id).then(() => {
-        const modal = new Modal(document.getElementById('taskModal'))
-        modal.show()
-      })
+      
+      const modal = new Modal(document.getElementById('taskModal'))
+      modal.show()
     },
     
     editTask(task) {
@@ -900,10 +871,9 @@ export default {
         due_date: task.due_date ? this.formatDateTimeLocal(new Date(task.due_date)) : '',
         estimated_hours: task.estimated_hours
       }
-      this.loadUsersForProject(this.currentTask.project_id).then(() => {
-        const modal = new Modal(document.getElementById('taskModal'))
-        modal.show()
-      })
+      
+      const modal = new Modal(document.getElementById('taskModal'))
+      modal.show()
     },
     
     editTaskFromView() {
@@ -1336,21 +1306,20 @@ export default {
       // Устанавливаем значения по умолчанию из API
       const defaultPriority = this.taskPriorities.find(p => p.is_default) || this.taskPriorities[0]
       
-    this.currentTask = {
-      title: '',
-      description: '',
-      project_id: '',
-      assignee_id: '',
-      status: status,
-      priority: defaultPriority ? defaultPriority.code : 'medium',
-      due_date: '',
-      estimated_hours: null
-    }
-    this.loadUsersForProject(this.currentTask.project_id).then(() => {
+      this.currentTask = {
+        title: '',
+        description: '',
+        project_id: '',
+        assignee_id: '',
+        status: status,
+        priority: defaultPriority ? defaultPriority.code : 'medium',
+        due_date: '',
+        estimated_hours: null
+      }
+      
       const modal = new Modal(document.getElementById('taskModal'))
       modal.show()
-    })
-  },
+    },
     
     // Новые обработчики drag and drop
     handleDragOver(event, status) {

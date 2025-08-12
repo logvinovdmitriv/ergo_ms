@@ -25,7 +25,7 @@ const navigationButtons = computed(() => {
     { icon: Calendar, title: 'Календарь', link: 'LMSCalendar', roles: ['student', 'teacher', 'admin', 'guest'] },
 
     { icon: FileCheck, title: 'Оценки', link: 'LMSGrades', roles: ['student', 'teacher', 'admin', 'guest'] },
-    { icon: Award, title: 'Достижения', link: 'LMSBadges', roles: ['student'] },
+    { icon: Award, title: 'Достижения', link: 'LMSBadges', roles: ['student', 'teacher', 'admin', 'guest'] },
 
     { icon: Settings, title: 'Управление курсами', link: 'LMSLessonsManagement', roles: ['student', 'teacher', 'admin', 'guest'] },
     { icon: Settings, title: 'Структура курсов', link: 'LMSCategoriesAndFormats', roles: ['student', 'teacher', 'admin', 'guest'] }

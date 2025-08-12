@@ -1,0 +1,19 @@
+{
+  "name": "logvinov-crm-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "pnpm --filter @logvinov/backend dev",
+    "dev:web": "pnpm --filter @logvinov/frontend dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "seed": "pnpm --filter @logvinov/backend prisma db push && pnpm --filter @logvinov/backend ts-node prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@8"
+}
+

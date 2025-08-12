@@ -114,7 +114,7 @@
     {
       "icon": "ClipboardList",
       "routeName": "CRM",
-      "title": "Управление организациями",
+      "title": "Рабочие пространства",
       "children": [
         {
           "icon": "Target",
@@ -181,11 +181,11 @@
         {
           "icon": "Building",
           "routeName": "Organizations",
-          "name": "Организации",
+          "name": "Организации и команды",
           "children": [
             { "routeName": "OrganizationList", "name": "Список организаций" },
-            { "routeName": "OrganizationNew", "name": "Создать организацию" },
-            { "routeName": "OrganizationInvites", "name": "Приглашения" }
+            { "routeName": "OrganizationInvites", "name": "Приглашения в организации" },
+            { "routeName": "TeamsManagement", "name": "Команды организаций" }
           ]
         }
       ]

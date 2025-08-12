@@ -1,18 +1,15 @@
 <template>
-  <section class="card orgs-scope">
+  <section class="card">
     <header class="card__header">
       <h2 class="card__title">Организации</h2>
+
       <div class="toolbar">
         <div class="toolbar__left">
           <input v-model="q" class="input input--sm" placeholder="Поиск по названию…" />
         </div>
         <div class="toolbar__right">
-          <button class="btn btn--sm btn--ghost" @click="load" :disabled="loading">
-            Обновить
-          </button>
-          <router-link class="btn btn--sm btn--primary" :to="{ name: 'OrganizationNew' }">
-            Создать
-          </router-link>
+          <button class="btn btn--sm btn--ghost" @click="load" :disabled="loading">Обновить</button>
+          <router-link class="btn btn--sm btn--primary" to="/crm/organizations/new">Создать</router-link>
         </div>
       </div>
     </header>
@@ -20,9 +17,7 @@
     <div class="card__body">
       <div v-if="!loading && filtered.length === 0" class="empty">
         <p class="muted">Пока нет организаций.</p>
-        <router-link class="btn btn--primary btn--sm" :to="{ name: 'OrganizationNew' }">
-          Создать первую
-        </router-link>
+        <router-link class="btn btn--primary btn--sm" to="/crm/organizations/new">Создать первую</router-link>
       </div>
 
       <div v-else class="table-wrap">
@@ -38,9 +33,7 @@
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="5">
-                <div class="skeleton skeleton--row"></div>
-              </td>
+              <td colspan="5"><div class="skeleton skeleton--row"></div></td>
             </tr>
 
             <tr
@@ -57,8 +50,8 @@
                   <div class="cell-main__text">
                     <div v-if="editingId === org.id" class="inline-edit" @click.stop>
                       <input v-model="editName" class="input input--sm" />
-                      <button class="btn btn--sm btn--primary" @click.stop="saveEdit(org.id)">Сохранить</button>
-                      <button class="btn btn--sm btn--ghost" @click.stop="cancelEdit">Отмена</button>
+                      <button class="btn btn--sm btn--primary" @click="saveEdit(org.id)">Сохранить</button>
+                      <button class="btn btn--sm btn--ghost" @click="cancelEdit">Отмена</button>
                     </div>
                     <template v-else>
                       <div class="title">
@@ -82,7 +75,7 @@
               </td>
 
               <td>
-                <span class="badge badge--neutral">
+                <span class="badge badge--neutral" :title="`Принято: ${org.accepted_members_count ?? '-'} • Приглашено: ${org.pending_members_count ?? '-'}`">
                   {{ org.members_count ?? org.members?.length ?? 0 }}
                 </span>
               </td>
@@ -92,26 +85,15 @@
                   v-if="isOwner(org)"
                   class="btn btn--xs btn--link"
                   title="Редактировать"
-                  @click.stop="startEdit(org)"
+                  @click="startEdit(org)"
                 >
-                  Ред.
+                  Редактировать
                 </button>
                 <router-link
                   class="btn btn--xs btn--link"
+                  :to="`/crm/organizations/${org.id}`"
                   title="Открыть"
-                  :to="{ name: 'OrganizationDetails', params: { id: org.id } }"
-                  @click.stop
-                >
-                  Откр.
-                </router-link>
-                <button
-                  v-if="isOwner(org)"
-                  class="btn btn--xs btn--ghost btn--danger"
-                  title="Удалить организацию"
-                  @click.stop="deleteOrg(org.id)"
-                >
-                  Удалить
-                </button>
+                >Открыть</router-link>
               </td>
             </tr>
           </tbody>
@@ -132,10 +114,7 @@ export default {
   setup() {
     const store = useStore();
     const router = useRouter();
-
-    // Нормализованный id текущего пользователя (реактивно и без .value гонок)
-    const toStr = v => (v == null ? null : String(v));
-    const uid   = computed(() => toStr(store.state?.auth?.user?.id));
+    const userId = store.state?.auth?.user?.id;
 
     const organizations = ref([]);
     const loading = ref(false);
@@ -156,74 +135,30 @@ export default {
 
     const filtered = computed(() => {
       const term = q.value.trim().toLowerCase();
-      const items = organizations.value || [];
-      if (!term) return items;
-      return items.filter(o => (o?.name || '').toLowerCase().includes(term));
+      if (!term) return organizations.value;
+      return organizations.value.filter(o => (o.name || '').toLowerCase().includes(term));
     });
 
-    // методы
-    const isOwner = (o) =>
-      o?.my_role === 'owner' || toStr(o?.owner?.id ?? o?.owner_id) === uid.value;
+    const isOwner = (org) => org?.owner && org.owner.id === userId;
+    const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_role || 'member'));
 
-    async function remove(o) {
-      if (!confirm(`Удалить организацию «${o.name}»?`)) return;
-      await OrganizationApi.deleteOrganization(o.id);
-      await load();
-    }
-
-    const myRole = (org) => (isOwner(org) ? 'owner' : (org.my_role || '-'));
-
-    const startEdit = (org) => { editingId.value = org.id; editName.value = org.name || ''; };
-    const cancelEdit = () => { editingId.value = null; editName.value = ''; };
+    const startEdit = (org) => { editingId.value = org.id; editName.value = org.name; };
+    const cancelEdit = () => { editingId.value = null; };
     const saveEdit = async (orgId) => {
       await OrganizationApi.updateOrganization(orgId, { name: editName.value });
       editingId.value = null;
       await load();
     };
 
-    const deleteOrg = async (id) => {
-      if (!confirm('Удалить организацию? Это действие нельзя отменить.')) return;
-      await OrganizationApi.deleteOrganization(id);
-      await load();
-    };
-
-    const goDetails = (id) => {
-      router.push({ name: 'OrganizationDetails', params: { id } });
-    };
+    const goDetails = (id) => router.push(`/crm/organizations/${id}`);
 
     onMounted(load);
 
     return {
       organizations, loading, q,
       editingId, editName, startEdit, cancelEdit, saveEdit,
-      filtered, isOwner, myRole, load, deleteOrg, goDetails
+      filtered, isOwner, myRole, load, goDetails
     };
   }
 };
 </script>
-
-<style scoped lang="scss">
-.orgs-scope {
-  --gap: 16px; --radius: 8px; --muted: #6b7280;
-
-  .toolbar { display:flex; gap:12px; align-items:center; justify-content:space-between; }
-  .toolbar__left, .toolbar__right { display:flex; gap:8px; align-items:center; }
-
-  .table-wrap { width:100%; overflow:auto; }
-  .table { width:100%; border-collapse:collapse; }
-  .table th, .table td { padding:10px 12px; border-bottom:1px solid rgba(0,0,0,.06); }
-  .table--hover tbody tr:hover { background:#fafafa; }
-
-  .cell-main { display:flex; align-items:center; gap:12px; }
-  .avatar { width:32px; height:32px; border-radius:50%; overflow:hidden; background:#f3f4f6; display:flex; align-items:center; justify-content:center; font-weight:600; }
-  .avatar img { width:100%; height:100%; object-fit:cover; }
-  .avatar--placeholder { color:#374151; }
-  .title { font-weight:600; }
-  .slug { font-size:12px; }
-
-  .btn--danger { border-color: rgba(220,38,38,.3); color:#dc2626; }
-  .btn--danger:hover { background: #fee2e2; }
-
-  @media (max-width: 768px) { .hide-sm { display:none; } }
-}
-</style>

@@ -7,10 +7,17 @@
 из модулей, находящихся в директории `MODULES_DIR`.
 """
 
+from django.urls import path, include
+
 from src.core.utils.auto_api.auto_config import discover_installed_app_urls
 from src.config.settings.apps import CORE_DIR, MODULES_DIR
 
 urlpatterns = []
+
+# Явно подключаем CRM-модуль, чтобы гарантировать доступность /api/crm/*
+urlpatterns += [
+    path('crm/', include('src.modules.crm.urls')),
+]
 
 core_urlpatterns = discover_installed_app_urls(CORE_DIR, prefix='src.core')
 urlpatterns += core_urlpatterns

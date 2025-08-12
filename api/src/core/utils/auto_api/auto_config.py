@@ -16,7 +16,7 @@ from django.urls import (
     path
 )
 
-from src.config.env import env
+# Импорт env делаем лениво внутри функций, чтобы избежать циклических импортов
 
 logger = logging.getLogger('utils')
 
@@ -44,33 +44,22 @@ def discover_installed_apps(apps_dir: str) -> List[str]:
             if os.path.isdir(app_path):
                 module_path = f'{base_module}.{app_name}' if base_module else app_name
 
-                # Проверяем наличие файла apps.py
+                # Проверяем наличие файла apps.py и просто регистрируем модуль без импорта
                 apps_py_path = os.path.join(app_path, 'apps.py')
                 if os.path.exists(apps_py_path):
-                    try:
-                        # Пытаемся импортировать модуль apps
-                        app_module = importlib.import_module(f'src.{module_path}.apps')
-
-                        # Ищем класс AppConfig
-                        app_config = None
-                        for name, obj in inspect.getmembers(app_module, inspect.isclass):
-                            if issubclass(obj, AppConfig) and obj is not AppConfig:
-                                app_config = obj
-                                break
-
-                        if app_config:
-                            installed_apps.append(f'src.{module_path}')
-                            logger.debug(f"Найдено приложение: {module_path}")
-                    except ModuleNotFoundError:
-                        logger.error("Модуль не найден: %s.apps", module_path)
-                    except AttributeError:
-                        logger.error("Ошибка атрибута: %s.apps не имеет допустимого класса AppConfig", module_path)
+                    installed_apps.append(f'{module_path}')
+                    logger.debug(f"Найдено приложение: {module_path}")
                 
                 # Продолжаем рекурсивный обход независимо от наличия apps.py
                 recursively_find_apps(app_path, module_path)
 
     # Начинаем обход с базовой директории
-    recursively_find_apps(apps_dir, os.path.basename(apps_dir))
+    base_module = ''
+    if apps_dir.endswith('/core'):
+        base_module = 'src.core'
+    elif apps_dir.endswith('/modules'):
+        base_module = 'src.modules'
+    recursively_find_apps(apps_dir, base_module)
     
     return installed_apps
 
@@ -111,9 +100,17 @@ def discover_installed_app_urls(apps_dir: str, prefix: str = None) -> List[str]:
                     # Проверяем наличие файла urls.py
                     urls_py_path = os.path.join(module_path, 'urls.py')
                     if os.path.exists(urls_py_path):
-                        # Формируем маршрут и добавляем его в urlpatterns
-                        url_pattern = path(new_route, include(f"{module_full_path}.urls"))
-                        urlpatterns.append(url_pattern)
+                        # Пытаемся импортировать urls модуля; если не получилось (нет опциональных зависимостей) — пропускаем
+                        try:
+                            importlib.import_module(f"{module_full_path}.urls")
+                            url_pattern = path(new_route, include(f"{module_full_path}.urls"))
+                            urlpatterns.append(url_pattern)
+                        except Exception as import_error:
+                            logger.warning(
+                                "Пропуск URL для %s из-за ошибки импорта: %s",
+                                module_full_path,
+                                str(import_error),
+                            )
 
                     # Рекурсивно обходим подмодули
                     recursively_find_urls(module_path, module_full_path, new_route)
@@ -151,7 +148,11 @@ def get_env_deploy_type():
     development = 'src.config.patterns.development'
     production = 'src.config.patterns.production'
 
-    deploy_type = env.str('API_DEPLOY_TYPE', default='development')
+    try:
+        from src.config.env import env  # lazy import to avoid circular deps
+        deploy_type = env.str('API_DEPLOY_TYPE', default='development')
+    except Exception:
+        deploy_type = 'development'
 
     if deploy_type == 'production':
         return production

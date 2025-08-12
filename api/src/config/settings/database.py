@@ -11,14 +11,20 @@ import logging
 import sqlite3
 import os
 
-import mysql.connector
-import pyodbc
+try:
+    import mysql.connector  # optional for dev container
+except Exception:
+    mysql = None
+try:
+    import pyodbc  # optional for dev container
+except Exception:
+    pyodbc = None
 
 from django.core.exceptions import ImproperlyConfigured
 
 import logging.config
 
-from src.config.settings.logger import LOGGING
+from config.settings.logger import LOGGING
 from src.config.settings.static import RESOURCES_DIR
 from src.config.settings.base import SYSTEM_DIR
 
@@ -151,6 +157,8 @@ for db_name, db_config in DATABASES.items():
             )
             connection.close()
         elif engine == DB_ENGINES['mysql']:
+            if mysql is None:
+                raise RuntimeError("mysql connector not installed")
             connection = mysql.connector.connect(
                 database=db_config['NAME'],
                 user=db_config['USER'],
@@ -170,6 +178,8 @@ for db_name, db_config in DATABASES.items():
                 f"UID={db_config['USER']};"
                 f"PWD={db_config['PASSWORD']}"
             )
+            if pyodbc is None:
+                raise RuntimeError("pyodbc not installed")
             connection = pyodbc.connect(connection_string)
             connection.close()
         logger.info(f"Успешное тестовое подключение к базе данных '{db_name}' (тип: {engine})")
@@ -189,9 +199,10 @@ for db_name, db_config in DATABASES.items():
         # Не прерываем работу сервера при ошибке подключения
         continue
 
-if is_no_default_connection and 'default' not in DATABASES:
+default_engine = DATABASES.get('default', {}).get('ENGINE', '')
+if is_no_default_connection or not default_engine:
     DATABASES['default'] = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(RESOURCES_DIR, 'db.sqlite3'),
     }
-    logger.warning("Создано подключение к SQLite по умолчанию, так как нет рабочего подключения default")
+    logger.warning("Установлено подключение к SQLite по умолчанию для 'default'")

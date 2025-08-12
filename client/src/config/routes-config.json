@@ -578,15 +578,15 @@
       "component": "@/modules/crm/organizations/pages/OrganizationsDetailsPage.vue",
       "meta": { "title": "Детали организации", "requiresAuth": true }
     },
-    "OrganizationStats": {
-      "path": "/crm/organizations/:id/stats",
-      "component": "@/modules/crm/organizations/pages/OrganizationStatsPage.vue",
-      "meta": { "title": "Статистика организации", "requiresAuth": true }
-    },
     "OrganizationInvites": {
       "path": "/crm/invites",
       "component": "@/modules/crm/organizations/pages/OrganizationsInvitesPage.vue",
       "meta": { "title": "Приглашения", "requiresAuth": true }
+    },
+    "TeamsManagement": {
+      "path": "/crm/organizations/teams",
+      "component": "@/modules/crm/organizations/pages/TeamsManagementPage.vue",
+      "meta": { "title": "Управление командами", "requiresAuth": true }
     },
     "LMS": {
       "path": "/lms",
@@ -641,14 +641,6 @@
       "component": "@/modules/lms/Badges/BadgesView.vue",
       "meta": {
         "title": "Достижения",
-        "requiresAuth": true
-      }
-    },
-    "LMSStats": {
-      "path": "/lms/stats",
-      "component": "@/modules/lms/Stats/LmsStatsView.vue",
-      "meta": {
-        "title": "Статистика",
         "requiresAuth": true
       }
     },

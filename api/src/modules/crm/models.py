@@ -102,13 +102,11 @@ class TaskPriority(models.Model):
 class Organization(models.Model):
     """Организация в CRM"""
     VISIBILITY_CHOICES = [
-        ('public', 'public'),
-        ('internal', 'internal'),
         ('private', 'private'),
+        ('by_invite', 'by_invite'),
     ]
     ROLE_CHOICES = [
         ('member', 'member'),
-        ('admin', 'admin'),
         ('viewer', 'viewer'),
     ]
     STATUS_CHOICES = [
@@ -119,7 +117,7 @@ class Organization(models.Model):
     name = models.CharField(max_length=255, verbose_name='Название организации')
     slug = models.SlugField(unique=True, blank=True, verbose_name='Слаг')
     description = models.TextField(blank=True, verbose_name='Описание')
-    logo_url = models.URLField(default='', blank=True, verbose_name='Логотип')
+    logo_url = models.URLField(blank=True, verbose_name='Логотип')
     industry = models.CharField(max_length=255, blank=True, verbose_name='Отрасль')
     website = models.URLField(blank=True, verbose_name='Сайт')
     email = models.EmailField(blank=True, verbose_name='Email')
@@ -132,7 +130,7 @@ class Organization(models.Model):
     billing_address = models.CharField(max_length=255, blank=True, verbose_name='Адрес для счетов')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_organizations', verbose_name='Владелец')
     members = models.ManyToManyField(User, through='OrganizationMember', related_name='organizations', through_fields=('organization', 'user'), verbose_name='Участники')
-    visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='private', verbose_name='Видимость')
+    visibility = models.CharField(max_length=20, choices=VISIBILITY_CHOICES, default='by_invite', verbose_name='Видимость')
     default_role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member', verbose_name='Роль по умолчанию')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Статус')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
@@ -148,13 +146,7 @@ class Organization(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base_slug = slugify(self.name) or "org"
-            slug = base_slug
-            counter = 1
-            while Organization.objects.filter(slug=slug).exclude(pk=self.pk).exists():
-                slug = f"{base_slug}-{counter}"
-                counter += 1
-            self.slug = slug
+            self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
 
@@ -196,6 +188,56 @@ class OrganizationMember(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.organization.name}"
+
+
+class Team(models.Model):
+    """Команда внутри организации"""
+    STATUS_CHOICES = [
+        ('active', 'Активна'),
+        ('archived', 'Архивирована'),
+    ]
+
+    name = models.CharField(max_length=255, verbose_name='Название команды')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='teams', verbose_name='Организация')
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_teams', verbose_name='Владелец команды')
+    manager = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_teams', verbose_name='Менеджер команды')
+    members = models.ManyToManyField(User, through='TeamMember', related_name='teams', verbose_name='Участники')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Статус')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+
+    class Meta:
+        app_label = 'crm'
+        verbose_name = 'Команда'
+        verbose_name_plural = 'Команды'
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.organization.name})"
+
+
+class TeamMember(models.Model):
+    """Участник команды"""
+    ROLE_CHOICES = [
+        ('member', 'Участник'),
+        ('lead', 'Лидер'),
+        ('observer', 'Наблюдатель'),
+    ]
+
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='memberships')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='team_memberships')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member', verbose_name='Роль')
+    joined_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата присоединения')
+
+    class Meta:
+        app_label = 'crm'
+        verbose_name = 'Участник команды'
+        verbose_name_plural = 'Участники команд'
+        unique_together = ['team', 'user']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.team.name}"
 class OrganizationInvite(models.Model):
     """Приглашение в организацию"""
 
@@ -235,7 +277,7 @@ class OrganizationInvite(models.Model):
 
     def __str__(self):
         return f"{self.email} -> {self.organization.name}"
-
+      
 class Project(models.Model):
     """Общий проект (не стратегический)"""
     PROJECT_STATUS_CHOICES = [
@@ -257,6 +299,7 @@ class Project(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='projects', null=True, blank=True, verbose_name='Организация')
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_projects', verbose_name='Владелец проекта')
     manager = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_projects', verbose_name='Менеджер проекта')
+    team = models.ForeignKey('Team', on_delete=models.SET_NULL, null=True, blank=True, related_name='projects', verbose_name='Команда')
     team_members = models.ManyToManyField(User, through='ProjectMember', related_name='project_teams', verbose_name='Участники команды')
 
     # Новые поля с внешними ключами
@@ -349,6 +392,7 @@ class Task(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks', verbose_name='Проект')
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='tasks', null=True, blank=True, verbose_name='Организация')
     assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks', verbose_name='Исполнитель')
+    assignees = models.ManyToManyField(User, blank=True, related_name='multi_assigned_tasks', verbose_name='Исполнители')
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_tasks', verbose_name='Создатель')
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subtasks', verbose_name='Родительская задача')
     # Новые поля с внешними ключами
@@ -366,12 +410,18 @@ class Task(models.Model):
     estimated_hours = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Оценка времени (часы)')
     actual_hours = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Фактическое время (часы)')
     kanban_order = models.IntegerField(default=0, verbose_name='Порядок в канбан')
+    subtasks_count = models.IntegerField(default=0, verbose_name='Количество подзадач')
 
     class Meta:
         app_label = 'crm'
         verbose_name = 'Задача'
         verbose_name_plural = 'Задачи'
         ordering = ['kanban_order', '-created_at']
+        indexes = [
+            models.Index(fields=['project', 'status']),
+            models.Index(fields=['project', 'due_date']),
+            models.Index(fields=['project', 'parent']),
+        ]
 
     def __str__(self):
         return self.title
@@ -432,6 +482,43 @@ class TaskAttachment(models.Model):
     def __str__(self):
         return self.filename
 
+
+class TaskAssignee(models.Model):
+    """Связь задача-пользователь с ролью (owner/assignee/reviewer)"""
+    ROLE_CHOICES = [
+        ('owner', 'Владелец'),
+        ('assignee', 'Исполнитель'),
+        ('reviewer', 'Ревьюер'),
+    ]
+
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='assignee_links')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='task_assignees')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='assignee')
+    assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='assigned_tasks_history')
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'crm'
+        verbose_name = 'Назначение задачи'
+        verbose_name_plural = 'Назначения задач'
+        unique_together = [('task', 'user', 'role')]
+
+
+class TaskTree(models.Model):
+    """Closure table для дерева задач"""
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='tree_entries')
+    ancestor = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='descendant_entries')
+    depth = models.IntegerField()
+
+    class Meta:
+        app_label = 'crm'
+        verbose_name = 'Связь дерева задач'
+        verbose_name_plural = 'Связи дерева задач'
+        unique_together = [('task', 'ancestor')]
+        indexes = [
+            models.Index(fields=['task', 'ancestor']),
+            models.Index(fields=['ancestor', 'depth']),
+        ]
 
 class TimeLog(models.Model):
     """Учет времени по задаче"""

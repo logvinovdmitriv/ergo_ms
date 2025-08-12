@@ -17,14 +17,19 @@ from celery.schedules import crontab
 
 from django.conf import settings
 
-from src.core.utils.auto_api.auto_config import get_env_deploy_type
+def _get_env_deploy_type_safe():
+    try:
+        from src.core.utils.auto_api.auto_config import get_env_deploy_type  # type: ignore
+        return get_env_deploy_type()
+    except Exception:
+        return 'src.config.patterns.development'
 
 # Настройки логирования для Celery
 import logging
 from logging.handlers import RotatingFileHandler
 
 # Определение типа развертывания и настройка переменной окружения Django
-deploy_type = get_env_deploy_type()
+deploy_type = _get_env_deploy_type_safe()
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', deploy_type)
 
 # Инициализация Celery приложения

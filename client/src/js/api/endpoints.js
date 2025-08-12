@@ -163,11 +163,6 @@ export const endpoints = {
         delete: id => `settings/tags/${id}/`
     },
     lms: {
-        base: '/lms',
-        analyticsDashboard: '/lms/analytics/dashboard/',
-        achievementsProgress: '/lms/analytics/achievements/progress/',
-        achievementsSummary: '/lms/achievements/summary/',
-        achievementsLeaderboard: '/lms/achievements/leaderboard/',
         // Пользователи и профили
         profiles: 'lms/profiles/',
         myProfile: 'lms/profile/me/',
