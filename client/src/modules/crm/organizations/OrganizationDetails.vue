@@ -6,10 +6,10 @@
         <h2 class="card__title">Общая информация</h2>
 
         <div class="toolbar">
-          <button v-if="canDeleteOrg" class="btn btn--sm btn--danger btn--ghost" @click="onDelete">
+          <button v-if="canManage" class="btn btn--sm btn--danger btn--ghost" @click="onDelete">
             Удалить организацию
           </button>
-          <button v-if="canLeave" class="btn btn--sm btn--ghost" @click="onLeave">
+          <button v-if="isParticipant" class="btn btn--sm btn--ghost" @click="onLeave">
             Выйти из организации
           </button>
         </div>
@@ -17,7 +17,7 @@
 
       <div class="card__body">
         <div v-if="loadingOrg"><div class="skeleton skeleton--row"></div></div>
-        <div v-else-if="error" class="text-danger">{{ error }}</div>
+
         <div v-else>
           <div class="org-summary">
             <div class="cell-main">
@@ -47,7 +47,7 @@
 
             <div class="toolbar">
               <button
-                v-if="!editMode && canEditOrg"
+                v-if="!editMode && canManage"
                 class="btn btn--sm btn--secondary"
                 @click="startEdit"
               >
@@ -62,7 +62,7 @@
                 </button>
               </div>
 
-              <button v-if="canManageMembers || canInvite" class="btn btn--sm btn--primary" @click="showInvite = true">
+              <button v-if="canInvite" class="btn btn--sm btn--primary" @click="showInvite = true">
                 Пригласить
               </button>
             </div>
@@ -184,7 +184,7 @@
                 <th>Участник</th>
                 <th>Роль</th>
                 <th>Статус</th>
-                <th class="col-actions" v-if="canManageMembers">Действия</th>
+                <th class="col-actions" v-if="canManage">Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -214,9 +214,8 @@
                     {{ m.status || 'pending' }}
                   </span>
                 </td>
-                <td class="col-actions" v-if="canManageMembers">
+                <td class="col-actions" v-if="canManage">
                   <button class="btn btn--xs btn--ghost"
-                          v-if="canManageMembers && toStr(m.user?.id) !== uid"
                           :disabled="m.role === 'owner'"
                           title="Удалить из организации"
                           @click="removeMember(m.user.id)">
@@ -379,7 +378,6 @@ export default {
     const loadingMembers = ref(false);
     const loadingProjects = ref(false);
     const loadingTasks = ref(false);
-    const error = ref(null);
 
     const showInvite = ref(false);
     const inviting = ref(false);
@@ -394,12 +392,7 @@ export default {
       try {
         const resp = await OrganizationApi.getOrganization(id);
         org.value = resp?.data || {};
-        error.value = null;
-      } catch (e) {
-        error.value = e?.response?.data?.detail || 'Ошибка загрузки организации';
-      } finally {
-        loadingOrg.value = false;
-      }
+      } finally { loadingOrg.value = false; }
     };
 
     const loadMembers = async () => {
@@ -412,27 +405,19 @@ export default {
     };
 
     const loadProjects = async () => {
-      if (!org.value?.id) return;
       loadingProjects.value = true;
       try {
-        const resp = await OrganizationApi.getOrganizationProjects(org.value.id, { page_size: 10 });
-        const data = resp?.data;
-        projects.value = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
-      } finally {
-        loadingProjects.value = false;
-      }
+        const resp = await OrganizationApi.getProjects(id);
+        projects.value = resp?.data?.results || resp?.data || [];
+      } finally { loadingProjects.value = false; }
     };
 
     const loadTasks = async () => {
-      if (!org.value?.id) return;
       loadingTasks.value = true;
       try {
-        const resp = await OrganizationApi.getOrganizationTasks(org.value.id, { page_size: 10 });
-        const data = resp?.data;
-        tasks.value = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
-      } finally {
-        loadingTasks.value = false;
-      }
+        const resp = await OrganizationApi.getTasks(id);
+        tasks.value = resp?.data?.results || resp?.data || [];
+      } finally { loadingTasks.value = false; }
     };
 
     // ====== Хелперы ======
@@ -514,33 +499,13 @@ export default {
     const toStr = v => (v == null ? null : String(v));
     const uid = computed(() => toStr(user.value?.id ?? profile.value?.id));
 
-    const defaultPerms = {
-      view: false,
-      edit_org: false,
-      manage_members: false,
-      invite: false,
-      delete_org: false,
-      project_create: false,
-      task_assign: false
-    };
-    const abilities = computed(() => org.value?.my_membership?.permissions ?? defaultPerms);
-    const role = computed(() => org.value?.my_membership?.role ?? null);
-    const isOwner = computed(() => role.value === 'owner');
-    const isAdmin = computed(() => role.value === 'admin');
-    const isMember = computed(() => role.value === 'member');
-    const isObserver = computed(() => role.value === 'observer');
+    const isObserver = computed(() => org.value?.my_role === 'observer');
+    const isOwner = computed(() => org.value?.my_role === 'owner');
+    const isAdmin = computed(() => ['admin', 'owner'].includes(org.value?.my_role));
+    const isMember = computed(() => ['member', 'admin', 'owner'].includes(org.value?.my_role));
 
-    const canView = computed(() => !!abilities.value.view);
-    const canEditOrg = computed(() => !!abilities.value.edit_org);
-    const canManageMembers = computed(() => !!abilities.value.manage_members);
-    const canInvite = computed(() => !!abilities.value.invite);
-    const canDeleteOrg = computed(() => !!abilities.value.delete_org);
-    const canCreateProject = computed(() => !!abilities.value.project_create);
-    const canAssignTasks = computed(() => !!abilities.value.task_assign);
-    const canLeave = computed(() => {
-      const owners = (members.value ?? []).filter(m => m.role === 'owner');
-      return isOwner.value ? owners.length > 1 : true;
-    });
+    const canInvite = computed(() => isAdmin.value);
+    const canManage = computed(() => isAdmin.value);
 
     function updateMyMember() {
       myMember.value = members.value.find(m => toStr(m.user?.id) === uid.value) || null;
@@ -549,7 +514,7 @@ export default {
     watch([members, uid], updateMyMember, { immediate: true });
 
     const myRole = (o) =>
-      (o?.my_membership?.role) ||
+      (o?.my_role) ||
       (toStr(o?.owner?.id ?? o?.owner_id) === uid.value ? 'owner' : 'member');
 
     const memberRoles = computed(() =>
@@ -557,13 +522,13 @@ export default {
     );
 
     const canChangeRole = (m) =>
-      canManageMembers.value && toStr(m.user?.id) !== uid.value && !(m.role === 'owner' && !isOwner.value);
+      (isOwner.value || isAdmin.value) && toStr(m.user?.id) !== uid.value && m.role !== 'owner';
 
     const initials = (u) => (u?.full_name || u?.username || u?.email || 'U').slice(0,1).toUpperCase();
 
     const changeRole = async (m) => {
       try {
-        await OrganizationApi.updateMemberRole(id, m.id, m.role);
+        await OrganizationApi.updateOrganizationMember(id, m.user.id, { role: m.role });
         await Promise.all([loadMembers(), loadOrg()]);
       } catch (e) {
         alert(e?.response?.data?.detail || 'Ошибка изменения роли');
@@ -604,6 +569,10 @@ export default {
     };
 
     const onLeave = async () => {
+      if (isOwner.value) {
+        alert('Вы владелец организации. Сначала передайте статус владельца.');
+        return;
+      }
       if (!confirm('Выйти из организации?')) return;
       try {
         await OrganizationApi.leaveOrganization(id);
@@ -662,11 +631,8 @@ export default {
     );
 
     onMounted(async () => {
-      await loadOrg();
-      if (!error.value) {
-        await Promise.all([loadMembers(), loadProjects(), loadTasks()]);
-        editForm.value = { ...org.value };
-      }
+      await Promise.all([loadOrg(), loadMembers(), loadProjects(), loadTasks()]);
+      editForm.value = { ...org.value };
     });
 
     return {
@@ -675,13 +641,11 @@ export default {
       org, members, projects, tasks,
       loadingOrg, loadingMembers, loadingProjects, loadingTasks,
       showInvite, inviting, onInviteSubmit,
-      error,
 
       // права
       uid, toStr,
-      isParticipant, role, isObserver, isMember, isOwner, isAdmin,
-      abilities, canView, canEditOrg, canManageMembers, canInvite, canDeleteOrg,
-      canCreateProject, canAssignTasks, canLeave, myRole, membersCount,
+      isParticipant, isObserver, isMember, isOwner, isAdmin, canInvite, canManage, myRole,
+      membersCount,
 
       // members
       initials, removeMember, changeRole, memberRoles, canChangeRole,
