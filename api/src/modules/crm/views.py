@@ -448,34 +448,19 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             return Project.objects.none()
 
         qs = super().get_queryset()
-        org_ids = list(_org_ids_user_is_in(user))
-
-        visible_q = (
-            Q(organization_id__in=org_ids) |
-            Q(owner_id=user.id) |
-            Q(manager_id=user.id) |
-            Q(memberships__user_id=user.id)
-        )
-
+        org_ids = _org_ids_user_is_in(user)
         org_id = self.request.query_params.get('organization')
         if org_id:
             try:
                 org_id_int = int(org_id)
             except (TypeError, ValueError):
-                return Project.objects.none()
+                return qs.none()
             if org_id_int not in org_ids:
-                return Project.objects.none()
+                return qs.none()
             qs = qs.filter(organization_id=org_id_int)
         else:
-            qs = qs.filter(visible_q)
-
-        my_projects = str(self.request.query_params.get('my_projects', '')).lower() in {'1', 'true', 'yes'}
-        if my_projects:
-            qs = qs.filter(
-                Q(owner_id=user.id) | Q(manager_id=user.id) | Q(memberships__user_id=user.id)
-            )
-
-        return qs.distinct()
+            qs = qs.filter(organization_id__in=org_ids)
+        return qs
 
     @action(detail=True, methods=['post'])
     def add_member(self, request, pk=None):
@@ -552,28 +537,6 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             'overdue_tasks': overdue_tasks,
             'progress': round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0)
         })
-
-    @action(detail=True, methods=['get'])
-    def assignable_users(self, request, pk=None):
-        """Пользователи, которых можно назначить исполнителями:
-        - org: все кроме observer + создатель проекта;
-        - без org: только создатель проекта."""
-        project = self.get_object()
-        users = []
-        if project.organization_id:
-            members = project.organization.memberships.select_related('user').exclude(role=OrgRole.OBSERVER)
-            users = [
-                {'id': m.user_id, 'full_name': m.user.get_full_name() or m.user.username}
-                for m in members
-            ]
-            owner = project.owner
-            if owner and not any(u['id'] == owner.id for u in users):
-                users.insert(0, {'id': owner.id, 'full_name': owner.get_full_name() or owner.username})
-        else:
-            owner = project.owner
-            if owner:
-                users = [{'id': owner.id, 'full_name': owner.get_full_name() or owner.username}]
-        return Response(users)
 
     @action(detail=False, methods=['delete'], url_path='bulk-delete')
     def bulk_delete(self, request, *args, **kwargs):
@@ -660,32 +623,18 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             return Task.objects.none()
 
         qs = super().get_queryset()
-        org_ids = list(_org_ids_user_is_in(user))
-
-        visible_q = (
-            Q(organization_id__in=org_ids) |
-            Q(project__memberships__user_id=user.id) |
-            Q(project__owner_id=user.id) |
-            Q(project__manager_id=user.id) |
-            Q(assignee_id=user.id) |
-            Q(creator_id=user.id)
-        )
-
+        org_ids = _org_ids_user_is_in(user)
         org_id = self.request.query_params.get('organization')
         if org_id:
             try:
                 org_id_int = int(org_id)
             except (TypeError, ValueError):
-                return Task.objects.none()
+                return qs.none()
             if org_id_int not in org_ids:
-                return Task.objects.none()
+                return qs.none()
             qs = qs.filter(organization_id=org_id_int)
         else:
-            qs = qs.filter(visible_q)
-
-        my_tasks = str(self.request.query_params.get('my_tasks', '')).lower() in {'1', 'true', 'yes'}
-        if my_tasks:
-            qs = qs.filter(Q(assignee_id=user.id) | Q(creator_id=user.id))
+            qs = qs.filter(organization_id__in=org_ids)
 
         start_date = self.request.query_params.get('start_date')
         end_date = self.request.query_params.get('end_date')
@@ -695,7 +644,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
                 Q(due_date__range=[start_date, end_date])
             )
 
-        return qs.distinct()
+        return qs
 
     @action(detail=False, methods=['delete'], url_path='bulk-delete')
     def bulk_delete(self, request, *args, **kwargs):

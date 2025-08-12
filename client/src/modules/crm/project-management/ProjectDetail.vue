@@ -884,10 +884,10 @@ export default {
     async loadUsers() {
       this.loadingUsers = true
       try {
-        if (this.project?.id) {
-          const resp = await projectManagementApi.getProjectAssignableUsers(this.project.id)
-          const members = Array.isArray(resp.data) ? resp.data : []
-          this.users = members.map(u => ({ id: u.id, full_name: u.full_name })).filter(u => u && u.id)
+        if (this.project?.organization?.id) {
+          const resp = await OrganizationApi.getOrganizationMembers(this.project.organization.id)
+          const members = Array.isArray(resp.data.results) ? resp.data.results : (resp.data || [])
+          this.users = members.map(m => m.user || m).filter(u => u && u.id)
         } else {
           const response = await projectManagementApi.getUsers()
           const users = Array.isArray(response.data.results) ? response.data.results :

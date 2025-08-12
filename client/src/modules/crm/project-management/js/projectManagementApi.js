@@ -69,9 +69,6 @@ class ProjectManagementApi {
     async getProjectStatistics(projectId) {
         return await this.client.get(`/crm/projects/${projectId}/statistics/`);
     }
-    async getProjectAssignableUsers(projectId) {
-        return await this.client.get(`/crm/projects/${projectId}/assignable_users/`);
-    }
 
     async addProjectMember(projectId, userData) {
         return await this.client.post(`/crm/projects/${projectId}/add_member/`, userData);
