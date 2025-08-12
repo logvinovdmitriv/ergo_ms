@@ -144,7 +144,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         organization = self.get_object()
         if not self._is_participant(organization, request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
-        serializer = OrganizationMemberSerializer(organization.memberships.all(), many=True)
+        members = organization.memberships.filter(
+            status='accepted',
+            role__in=['owner', 'admin', 'member']
+        )
+        serializer = OrganizationMemberSerializer(members, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['patch', 'delete'], url_path='members/(?P<user_id>[^/.]+)')
@@ -439,17 +443,24 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
 
         queryset = super().get_queryset()
 
+        org_id = self.request.query_params.get('organization') or self.request.query_params.get('organization_id')
+        public_org = False
+        if org_id:
+            queryset = queryset.filter(organization_id=org_id)
+            public_org = Organization.objects.filter(id=org_id, visibility='public').exists()
+
         # Показываем проекты организаций, где пользователь владелец или участник,
-        # а также проекты без организации
+        # а также проекты без организации или с публичной видимостью
         queryset = queryset.filter(
             Q(organization__owner=user) |
             Q(organization__memberships__user=user, organization__memberships__status='accepted') |
-            Q(organization__isnull=True)
+            Q(organization__isnull=True) |
+            Q(organization__visibility='public')
         )
 
         # Дополнительный фильтр "Мои проекты" (оставляем для совместимости)
         my_projects = self.request.query_params.get('my_projects', None)
-        if not (my_projects and my_projects.lower() == 'false'):
+        if not (my_projects and my_projects.lower() == 'false') and not public_org:
             queryset = queryset.filter(
                 Q(owner=user) |
                 Q(manager=user) |
@@ -607,12 +618,19 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
 
         queryset = super().get_queryset()
 
+        org_id = self.request.query_params.get('organization') or self.request.query_params.get('organization_id')
+        public_org = False
+        if org_id:
+            queryset = queryset.filter(organization_id=org_id)
+            public_org = Organization.objects.filter(id=org_id, visibility='public').exists()
+
         # Ограничиваем задачи организациями, где пользователь владелец
-        # или принятый участник, а также задачи без организации
+        # или принятый участник, а также задачи без организации или публичные
         queryset = queryset.filter(
             Q(organization__owner=user) |
             Q(organization__memberships__user=user, organization__memberships__status='accepted') |
-            Q(organization__isnull=True)
+            Q(organization__isnull=True) |
+            Q(organization__visibility='public')
         )
 
         # Параметр "Мои задачи"
@@ -621,7 +639,7 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         if my_tasks and my_tasks.lower() == 'true':
             # Только мои задачи - только задачи, где я исполнитель
             queryset = queryset.filter(assignee=user).distinct()
-        else:
+        elif not public_org:
             # Показываем все задачи из проектов, в которых пользователь участвует
             queryset = queryset.filter(
                 Q(project__owner=user) |
