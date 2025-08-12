@@ -127,11 +127,22 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             ).exists()
         )
 
+    def _is_participant(self, org, user):
+        return (
+            org.owner_id == user.id or
+            OrganizationMember.objects.filter(
+                organization=org,
+                user=user,
+                role__in=['owner', 'admin', 'member', 'viewer'],
+                status='accepted'
+            ).exists()
+        )
+
     @action(detail=True, methods=['get'])
     def members(self, request, pk=None):
         """Список участников организации"""
         organization = self.get_object()
-        if not self._is_owner_or_admin(organization, request.user):
+        if not self._is_participant(organization, request.user):
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = OrganizationMemberSerializer(organization.memberships.all(), many=True)
         return Response(serializer.data)

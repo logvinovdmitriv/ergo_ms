@@ -230,54 +230,6 @@
       </div>
     </section>
 
-    <!-- Проекты -->
-    <section class="card">
-      <header class="card__header">
-        <h3 class="card__title">Проекты</h3>
-      </header>
-      <div class="card__body">
-        <div v-if="loadingProjects" class="text-center py-3">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Загрузка...</span>
-          </div>
-        </div>
-        <div v-else-if="projects.length === 0" class="text-center text-muted py-3">
-          Проектов пока нет
-        </div>
-        <div v-else class="list-group">
-          <router-link
-            v-for="p in projects"
-            :key="p.id"
-            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-            :to="`/crm/project-management/project/${p.id}`"
-          >
-            <div class="me-3">
-              <div class="fw-bold">{{ p.name }}</div>
-              <div class="small text-muted">
-                <span v-if="p.organization">Орг: {{ p.organization.name }}</span>
-                <span v-else>Орг: —</span>
-                ·
-                <span>Нач: {{ formatDate(p.start_date) }}</span>
-                ·
-                <span>Кон: {{ formatDate(p.end_date) }}</span>
-              </div>
-              <div class="small text-muted" v-if="p.tasks_count || p.task_count">
-                {{ p.tasks_count || p.task_count }} задач
-              </div>
-            </div>
-            <div class="text-end">
-              <span class="badge rounded-pill me-2" :class="getProjectStatusClass(p.status)">
-                {{ humanProjectStatus(p.status) }}
-              </span>
-              <span class="badge rounded-pill" :class="getPriorityClass(p.priority)">
-                {{ humanPriority(p.priority) }}
-              </span>
-            </div>
-          </router-link>
-        </div>
-      </div>
-    </section>
-
     <!-- Задачи -->
     <section class="card">
       <header class="card__header">
