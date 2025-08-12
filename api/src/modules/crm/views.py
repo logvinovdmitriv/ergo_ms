@@ -15,7 +15,7 @@ from django.db.models import Subquery
 from .models import (
     Project, ProjectMember, Task, TaskComment, TaskAttachment, TimeLog,
     ProjectStatus, ProjectPriority, TaskStatus, TaskPriority,
-    Organization, OrganizationMember, OrganizationInvite, OrgRole
+    Organization, OrganizationMember, OrganizationInvite
 )
 from .serializers import (
     ProjectSerializer, ProjectListSerializer, ProjectMemberSerializer,
@@ -36,15 +36,9 @@ def lock_base_queryset(qs, model):
     # а лочим уже базовую таблицу по IN (SELECT ...).
     return model.objects.filter(pk__in=Subquery(qs.values('pk')))
 
-from .permissions import IsOrgObserverOrAbove, IsOrgMemberOrAbove, IsOrgAdminOrOwner
-
 User = get_user_model()
 
 MAX_BULK = 1000
-
-
-def _org_ids_user_is_in(user):
-    return OrganizationMember.objects.filter(user=user, status='accepted').values_list('organization_id', flat=True)
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -56,18 +50,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     search_fields = ['name']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
-
-    def get_permissions(self):
-        if self.action in ('list', 'retrieve', 'assignable_members'):
-            perms = [IsAuthenticated(), IsOrgObserverOrAbove()]
-        elif self.action in (
-            'update', 'partial_update', 'destroy', 'invite', 'members',
-            'manage_member', 'transfer_ownership'
-        ):
-            perms = [IsAuthenticated(), IsOrgAdminOrOwner()]
-        else:
-            perms = [IsAuthenticated()]
-        return perms
 
     def get_queryset(self):
         user = self.request.user
@@ -93,11 +75,15 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         )
 
     def update(self, request, *args, **kwargs):
-        self.get_object()
+        org = self.get_object()
+        if not self._is_owner_or_admin(org, request.user):
+            return Response({'detail': 'Недостаточно прав'}, status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
-        self.get_object()
+        org = self.get_object()
+        if not self._is_owner_or_admin(org, request.user):
+            return Response({'detail': 'Недостаточно прав'}, status=status.HTTP_403_FORBIDDEN)
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
@@ -111,6 +97,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     def invite(self, request, pk=None):
         """Пригласить пользователя в организацию (только админ/владелец)"""
         organization = self.get_object()
+        if not self._is_owner_or_admin(organization, request.user):
+            return Response({'detail': 'Недостаточно прав'}, status=status.HTTP_403_FORBIDDEN)
 
         email = request.data.get('email')
         role = request.data.get('role', organization.default_role)
@@ -128,30 +116,32 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             invited_by=request.user,
         )
         return Response({'token': invite.token, 'status': invite.status}, status=status.HTTP_201_CREATED)
+    def _is_owner_or_admin(self, org, user):
+        return (
+            org.owner_id == user.id or
+            OrganizationMember.objects.filter(
+                organization=org,
+                user=user,
+                role__in=['owner', 'admin'],
+                status='accepted'
+            ).exists()
+        )
+
     @action(detail=True, methods=['get'])
     def members(self, request, pk=None):
         """Список участников организации"""
         organization = self.get_object()
+        if not self._is_owner_or_admin(organization, request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = OrganizationMemberSerializer(organization.memberships.all(), many=True)
         return Response(serializer.data)
-
-    @action(detail=True, methods=['get'])
-    def assignable_members(self, request, pk=None):
-        org = self.get_object()
-        members = org.memberships.select_related('user').exclude(role=OrgRole.OBSERVER)
-        data = [
-            {
-                'id': m.user_id,
-                'full_name': m.user.get_full_name() or m.user.username,
-            }
-            for m in members
-        ]
-        return Response(data)
 
     @action(detail=True, methods=['patch', 'delete'], url_path='members/(?P<user_id>[^/.]+)')
     def manage_member(self, request, pk=None, user_id=None):
         """Изменение роли или удаление участника"""
         organization = self.get_object()
+        if not self._is_owner_or_admin(organization, request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         try:
             member = OrganizationMember.objects.get(organization=organization, user_id=user_id)
         except OrganizationMember.DoesNotExist:
@@ -167,8 +157,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             if role is not None:
                 if role not in dict(OrganizationMember.ROLE_CHOICES):
                     return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
-                if member.is_owner():
-                    return Response({'error': 'cannot change owner role'}, status=status.HTTP_400_BAD_REQUEST)
                 if role == 'owner':
                     if organization.owner_id != request.user.id:
                         return Response({'error': 'invalid role'}, status=status.HTTP_400_BAD_REQUEST)
@@ -178,8 +166,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         OrganizationMember.objects.filter(
                             organization=organization,
                             user=request.user
-                        ).update(role=OrgRole.ADMIN)
-                        member.role = OrgRole.OWNER
+                        ).update(role='admin')
+                        member.role = 'owner'
                         member.save(update_fields=['role'])
                     return Response(OrganizationMemberSerializer(member).data)
                 member.role = role
@@ -425,15 +413,6 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'start_date', 'end_date', 'priority']
     ordering = ['-created_at']
 
-    def get_permissions(self):
-        if self.action in ('list', 'retrieve'):
-            perms = [IsAuthenticated(), IsOrgObserverOrAbove()]
-        elif self.action in ('create', 'update', 'partial_update', 'destroy', 'bulk_delete', 'bulk_update'):
-            perms = [IsAuthenticated(), IsOrgMemberOrAbove()]
-        else:
-            perms = [IsAuthenticated()]
-        return perms
-
     def get_serializer_class(self):
         if self.action == 'list':
             return ProjectListSerializer
@@ -447,20 +426,26 @@ class ProjectViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         if not user:
             return Project.objects.none()
 
-        qs = super().get_queryset()
-        org_ids = _org_ids_user_is_in(user)
-        org_id = self.request.query_params.get('organization')
-        if org_id:
-            try:
-                org_id_int = int(org_id)
-            except (TypeError, ValueError):
-                return qs.none()
-            if org_id_int not in org_ids:
-                return qs.none()
-            qs = qs.filter(organization_id=org_id_int)
-        else:
-            qs = qs.filter(organization_id__in=org_ids)
-        return qs
+        queryset = super().get_queryset()
+
+        # Показываем проекты организаций, где пользователь владелец или участник,
+        # а также проекты без организации
+        queryset = queryset.filter(
+            Q(organization__owner=user) |
+            Q(organization__memberships__user=user, organization__memberships__status='accepted') |
+            Q(organization__isnull=True)
+        )
+
+        # Дополнительный фильтр "Мои проекты" (оставляем для совместимости)
+        my_projects = self.request.query_params.get('my_projects', None)
+        if not (my_projects and my_projects.lower() == 'false'):
+            queryset = queryset.filter(
+                Q(owner=user) |
+                Q(manager=user) |
+                Q(team_members=user)
+            )
+
+        return queryset.distinct()
 
     @action(detail=True, methods=['post'])
     def add_member(self, request, pk=None):
@@ -592,19 +577,6 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
     ordering_fields = ['created_at', 'due_date', 'priority', 'kanban_order']
     ordering = ['kanban_order', '-created_at']
 
-    def get_permissions(self):
-        if self.action in ('list', 'retrieve'):
-            perms = [IsAuthenticated(), IsOrgObserverOrAbove()]
-        elif self.action in (
-            'create', 'update', 'partial_update', 'destroy',
-            'bulk_delete', 'bulk_update', 'add_comment', 'add_time_log',
-            'update_kanban_order', 'change_status'
-        ):
-            perms = [IsAuthenticated(), IsOrgMemberOrAbove()]
-        else:
-            perms = [IsAuthenticated()]
-        return perms
-
     def get_serializer_class(self):
         if self.action == 'list':
             return TaskListSerializer
@@ -622,29 +594,42 @@ class TaskViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         if not user:
             return Task.objects.none()
 
-        qs = super().get_queryset()
-        org_ids = _org_ids_user_is_in(user)
-        org_id = self.request.query_params.get('organization')
-        if org_id:
-            try:
-                org_id_int = int(org_id)
-            except (TypeError, ValueError):
-                return qs.none()
-            if org_id_int not in org_ids:
-                return qs.none()
-            qs = qs.filter(organization_id=org_id_int)
-        else:
-            qs = qs.filter(organization_id__in=org_ids)
+        queryset = super().get_queryset()
 
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
+        # Ограничиваем задачи организациями, где пользователь владелец
+        # или принятый участник, а также задачи без организации
+        queryset = queryset.filter(
+            Q(organization__owner=user) |
+            Q(organization__memberships__user=user, organization__memberships__status='accepted') |
+            Q(organization__isnull=True)
+        )
+
+        # Параметр "Мои задачи"
+        my_tasks = self.request.query_params.get('my_tasks', None)
+
+        if my_tasks and my_tasks.lower() == 'true':
+            # Только мои задачи - только задачи, где я исполнитель
+            queryset = queryset.filter(assignee=user).distinct()
+        else:
+            # Показываем все задачи из проектов, в которых пользователь участвует
+            queryset = queryset.filter(
+                Q(project__owner=user) |
+                Q(project__manager=user) |
+                Q(project__team_members=user) |
+                Q(assignee=user) |
+                Q(creator=user)
+            ).distinct()
+
+        # Фильтр по дате для календаря
+        start_date = self.request.query_params.get('start_date', None)
+        end_date = self.request.query_params.get('end_date', None)
         if start_date and end_date:
-            qs = qs.filter(
+            queryset = queryset.filter(
                 Q(start_date__range=[start_date, end_date]) |
                 Q(due_date__range=[start_date, end_date])
             )
 
-        return qs
+        return queryset
 
     @action(detail=False, methods=['delete'], url_path='bulk-delete')
     def bulk_delete(self, request, *args, **kwargs):
