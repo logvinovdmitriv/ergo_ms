@@ -1,6 +1,8 @@
 /installation
-/api
-/client
 
 .env
 databases.yaml
+.DS_Store
+.venv/
+venv/
+env/

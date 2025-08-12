@@ -1,0 +1,241 @@
+// Иконка
+.icon-flex {
+  display: inline-flex;
+}
+
+// Секция при наведении
+.hover-section {
+  transition:
+    background-color $transition,
+    box-shadow $transition;
+
+  &:hover {
+    cursor: pointer;
+    background-color: var(--color-secondary-background);
+  }
+}
+
+// Задний фон
+.layout-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(2px);
+  z-index: 10;
+
+  opacity: 1;
+  transition: opacity 0.3s ease;
+
+  &:not(.active) {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+// Аватар
+.avatar {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  img {
+    width: 100%;
+    height: 100%;
+  }
+  // Avatar Initials if no images added
+  .avatar-initial {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $white;
+    background-color: $secondary;
+    font-weight: $font-weight-bold;
+  }
+  // Avatar Status indication
+  &.avatar-online,
+  &.avatar-offline,
+  &.avatar-away,
+  &.avatar-busy {
+    &:after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: 3px;
+      width: 8px;
+      height: 8px;
+      border-radius: 100%;
+
+      box-shadow: 0 0 0 2px var(--bs-card-bg);
+    }
+  }
+  &.avatar-online:after {
+    background-color: $success;
+  }
+  &.avatar-offline:after {
+    background-color: $secondary;
+  }
+  &.avatar-away:after {
+    background-color: $warning;
+  }
+  &.avatar-busy:after {
+    background-color: $danger;
+  }
+}
+
+.avatar-group {
+  .avatar {
+    transition: all 0.25s ease;
+    img,
+    .avatar-initial {
+      border: 2px solid var(--color-secondary-background);
+    }
+    .avatar-initial {
+      background-color: shade-color($secondary, 35%);
+    }
+    &:hover {
+      z-index: 30;
+      transition: all 0.25s ease;
+    }
+  }
+  .avatar {
+    margin-left: -0.8rem;
+    &:first-child {
+      margin-left: 0;
+    }
+  }
+  .avatar-xs {
+    margin-left: -0.65rem;
+  }
+  .avatar-sm {
+    margin-left: -0.75rem;
+  }
+  .avatar-md {
+    margin-left: -0.9rem;
+  }
+  .avatar-lg {
+    margin-left: -1.5rem;
+  }
+  .avatar-xl {
+    margin-left: -1.75rem;
+  }
+}
+
+.pull-up {
+  transition: all 0.25s ease;
+  &:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: $box-shadow;
+    z-index: 30;
+    border-radius: 50%;
+  }
+}
+
+.text-smooth-animation {
+  transform: translateX(0);
+  opacity: 1;
+
+  transition:
+    transform 0.3s ease-out,
+    opacity 0.1s ease-out;
+
+  &.hidden {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+}
+
+// График
+svg.apexcharts-svg {
+  background: transparent !important;
+}
+.apexcharts-marker-circle,
+.apexcharts-marker-square,
+.apexcharts-marker,
+.apexcharts-pie-area {
+  stroke: transparent;
+}
+.apexcharts-heatmap-rect,
+.apexcharts-track path,
+.apexcharts-pie-area {
+  stroke: var(--bs-secondary-bg-subtle);
+}
+.apexcharts-gridline,
+.apexcharts-plot-series polygon,
+.apexcharts-grid-borders line[stroke-width='1'],
+.apexcharts-xaxis-tick {
+  stroke: var(--bs-border-color);
+}
+.apexcharts-plot-series polygon {
+  fill: var(--bs-secondary-bg-subtle);
+}
+
+// Календарь v-календарь
+.vc-container .vc-weekday-1,
+.vc-container .vc-weekday-7 {
+  color: $primary;
+}
+
+.vc-container {
+  background-color: var(--bs-card-bg);
+  border-color: var(--bs-border-color);
+  color: var(--bs-heading-color);
+
+  transition: background-color $transition;
+}
+
+.vc-header .vc-arrow,
+.vc-header .vc-title {
+  color: var(--bs-heading-color);
+  background-color: transparent;
+
+  &:hover {
+    background-color: var(--bs-secondary-bg-subtle);
+  }
+}
+
+// Высококачественные изображения
+.high-quality-image {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  filter: blur(0);
+  transition: all 0.2s ease;
+}
+
+// Аватары с высоким качеством
+.hq-avatar {
+  @extend .high-quality-image;
+  object-fit: cover;
+  border-radius: 50%;
+  
+  &.hq-avatar-bordered {
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    
+    &:hover {
+      transform: translateZ(0) scale(1.05);
+      border-color: rgba(255, 255, 255, 0.4);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+  }
+  
+  &.hq-avatar-primary {
+    border: 3px solid var(--bs-primary);
+    box-shadow: 0 4px 20px rgba(0, 123, 255, 0.2);
+    
+    &:hover {
+      transform: translateZ(0) scale(1.03);
+      box-shadow: 0 8px 30px rgba(0, 123, 255, 0.3);
+    }
+  }
+}
