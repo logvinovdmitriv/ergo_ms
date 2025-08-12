@@ -6,13 +6,14 @@ from src.modules.lms.views import (
     ThemeViewSet, LessonViewSet, ResourceViewSet, ForumViewSet, ForumDiscussionViewSet,
     ForumPostViewSet, TestBankViewSet, TestViewSet, TestAttemptViewSet,
     AssignmentViewSet, SubmittedAssignmentViewSet,
-    CalendarEventViewSet, BadgeViewSet, UserBadgeViewSet,
+    CalendarEventViewSet, UserBadgeViewSet,
     NotificationViewSet, PrivateMessageViewSet, UserRoleViewSet,
     QuestionViewSet, AnswerViewSet, LessonItemViewSet,
     LmsStatsViewSet,
     StudentStatsView,
     TeacherStatsView,
     BadgesSummaryView,
+    UserBadgesView,
 )
 
 # Создаем роутер для API
@@ -40,7 +41,6 @@ router.register(r'test-attempts', TestAttemptViewSet, basename='testattempt')
 router.register(r'assignments', AssignmentViewSet, basename='assignment')
 router.register(r'submitted-assignments', SubmittedAssignmentViewSet, basename='submittedassignment')
 router.register(r'calendar', CalendarEventViewSet, basename='calendarevent')
-router.register(r'badges', BadgeViewSet, basename='badge')
 router.register(r'user-badges', UserBadgeViewSet, basename='userbadge')
 router.register(r'notifications', NotificationViewSet, basename='notification')
 router.register(r'messages', PrivateMessageViewSet, basename='privatemessage')
@@ -62,6 +62,7 @@ urlpatterns = [
 
     path('stats/student/', StudentStatsView.as_view(), name='lms-stats-student'),
     path('stats/teacher/', TeacherStatsView.as_view(), name='lms-stats-teacher'),
+    path('badges/', UserBadgesView.as_view(), name='lms-badges'),
     path('badges/summary/', BadgesSummaryView.as_view(), name='lms-badges-summary'),
     
     # Endpoints для профиля

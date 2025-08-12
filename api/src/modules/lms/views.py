@@ -47,7 +47,7 @@ from .serializers import (
     UserLmsOverviewSerializer
 )
 
-from .services.statistics import get_user_overview
+from .services.statistics import get_user_overview, calculate_user_stats
 from rest_framework.views import APIView
 
 
@@ -1944,13 +1944,90 @@ class LessonItemViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
 
 class LmsStatsViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
+    """Endpoint returning course progress statistics for a user."""
+
+    def _get_target_user(self, request):
+        """Return user whose stats should be returned respecting permissions."""
+
+        user = request.user
+        requested_id = request.query_params.get("user_id")
+        if requested_id and user.roles.filter(role__in=["teacher", "admin"], is_active=True).exists():
+            return User.objects.get(pk=requested_id)
+        if requested_id and not user.roles.filter(role__in=["teacher", "admin"], is_active=True).exists():
+            raise PermissionDenied("Not allowed to view other users' statistics")
+        return user
+
+    def list(self, request):
+        target = self._get_target_user(request)
+        data = calculate_user_stats(target)
+        return Response(data)
 
     @action(detail=False, methods=["get"], url_path="overview")
     def overview(self, request):
+        """Legacy dashboard overview used by existing front-end."""
         category = request.query_params.get("category")
         data = get_user_overview(request.user, category_id=category)
         serializer = UserLmsOverviewSerializer(data)
         return Response(serializer.data)
+
+
+class UserBadgesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_target_user(self, request):
+        user = request.user
+        requested_id = request.query_params.get("user_id")
+        if requested_id and user.roles.filter(role__in=["teacher", "admin"], is_active=True).exists():
+            return User.objects.get(pk=requested_id)
+        if requested_id and not user.roles.filter(role__in=["teacher", "admin"], is_active=True).exists():
+            raise PermissionDenied("Not allowed to view other users' badges")
+        return user
+
+    def get(self, request):
+        target = self._get_target_user(request)
+
+        badges = Badge.objects.filter(is_active=True).order_by("badge_type", "id")
+        awarded = {
+            ub.badge_id: ub
+            for ub in UserBadge.objects.filter(user=target, badge__in=badges).select_related("badge")
+        }
+
+        categories = {}
+        for badge in badges:
+            cat = badge.badge_type
+            cat_obj = categories.setdefault(
+                cat,
+                {
+                    "id": cat,
+                    "name": cat.replace("_", " ").title(),
+                    "earned_count": 0,
+                    "badges": [],
+                },
+            )
+
+            awarded_obj = awarded.get(badge.id)
+            earned = bool(awarded_obj)
+            if earned:
+                cat_obj["earned_count"] += 1
+
+            cat_obj["badges"].append(
+                {
+                    "id": badge.id,
+                    "title": badge.name,
+                    "earned": earned,
+                    "earned_at": awarded_obj.awarded_at if earned else None,
+                    "progress": None,
+                    "threshold": None,
+                }
+            )
+
+        result = []
+        for cat in categories.values():
+            next_badge = next((b for b in cat["badges"] if not b["earned"]), None)
+            cat["next_badge"] = next_badge
+            result.append(cat)
+
+        return Response(result)
 
 
 class StudentStatsView(APIView):

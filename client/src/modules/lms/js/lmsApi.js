@@ -141,10 +141,13 @@ export const lmsApi = {
   getTeacherStats(params) {
     return apiClient.get('/api/lms/stats/teacher', { params })
   },
-  getBadgesSummary(params) {
-    return apiClient.get('/api/lms/badges/summary', { params })
+  getStats(params) {
+    return apiClient.get('/api/lms/stats', { params })
   },
-
+  getBadges(params) {
+    return apiClient.get('/api/lms/badges', { params })
+  },
+  
   // Статистика студента
   async getStudentStats() {
     try {
