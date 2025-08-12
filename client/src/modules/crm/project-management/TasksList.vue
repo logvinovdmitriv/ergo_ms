@@ -738,11 +738,7 @@ export default {
         if (projectId) {
           const resp = await projectManagementApi.getProjectAssignableUsers(projectId)
           const members = Array.isArray(resp.data) ? resp.data : []
-          this.users = members
-            .filter(m => m.role !== 'observer')
-            .map(m => m.user || m)
-            .filter(u => u && u.id)
-            .map(u => ({ id: u.id, full_name: u.full_name }))
+          this.users = members.map(u => ({ id: u.id, full_name: u.full_name })).filter(u => u && u.id)
           return
         }
         await this.loadAllUsers()
