@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from .models import (
     Project, ProjectMember, Task, TaskComment, TaskAttachment, TimeLog,
     ProjectStatus, ProjectPriority, TaskStatus, TaskPriority,
-    Organization, OrganizationMember, OrganizationInvite, OrgRole
+    Organization, OrganizationMember, OrganizationInvite
 )
 
 User = get_user_model()
@@ -126,11 +126,11 @@ class OrganizationSerializer(serializers.ModelSerializer):
         # если прилетел "owner" — тихо переводим в member
         if value == 'owner':
             return 'member'
-        allowed = {'member', 'admin', 'observer'}
+        allowed = {'member', 'admin', 'viewer'}
         if value not in allowed:
             # можно тоже схлопнуть в member, но оставлю явную ошибку:
             raise serializers.ValidationError(
-                'Недопустимое значение. Разрешено: member, admin, observer.'
+                'Недопустимое значение. Разрешено: member, admin, viewer.'
             )
         return value
 
@@ -477,20 +477,6 @@ class TaskSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Дата окончания не может быть раньше даты начала"
                 )
-        project = data.get('project') or getattr(self.instance, 'project', None)
-        assignee_id = data.get('assignee_id') or (
-            getattr(self.instance, 'assignee_id', None) if self.instance else None
-        )
-        if project and assignee_id:
-            org = project.organization
-            if org:
-                m = OrganizationMember.objects.filter(
-                    organization=org, user_id=assignee_id
-                ).first()
-                if not m or m.role == OrgRole.OBSERVER:
-                    raise serializers.ValidationError({
-                        'assignee_id': 'Пользователь не может быть исполнителем в этой организации.'
-                    })
 
         return data
 
