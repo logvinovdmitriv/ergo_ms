@@ -1,0 +1,91 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start All Services",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "Client",
+                "API",
+                "Celery Worker", 
+                "Celery Beat"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Client",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "dev"],
+            "options": {
+                "cwd": "${workspaceFolder}/client"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "API",
+            "type": "shell",
+            "command": "cmd",
+            "args": ["/c", "${workspaceFolder}/api/.venv/Scripts/activate.bat && api dev"],
+            "options": {
+                "cwd": "${workspaceFolder}/api"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Celery Worker",
+            "type": "shell",
+            "command": "cmd",
+            "args": ["/c", "${workspaceFolder}/api/.venv/Scripts/activate.bat && api start_celery_worker"],
+            "options": {
+                "cwd": "${workspaceFolder}/api"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Celery Beat",
+            "type": "shell",
+            "command": "cmd",
+            "args": ["/c", "${workspaceFolder}/api/.venv/Scripts/activate.bat && api start_celery_beat"],
+            "options": {
+                "cwd": "${workspaceFolder}/api"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        }
+    ]
+} 

@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+---
+Все иконки в client бери из библиотеки lucid, и делай их всегда по центру относительно текста, ты часто делаешь их чуть ниже текста. 
+
+С всплывающими уведомлениями работай вот так всегда:
+import { useToast } from 'vue-toastification'
+const toast = useToast()

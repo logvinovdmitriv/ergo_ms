@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+Никогда не перезапускай API, он всегда запущен и при внесении изменений я сам его перезапускаю.
+
+Всегда используй `SwaggerSafeMixin` для ViewSet'ов, которые фильтруют данные по пользователю. Это предотвратит ошибки при генерации документации Swagger и обеспечит корректную работу API. (Данный mixin находится в api/src/cms/utils/mixins.py)
+
+Все импорты строй начиная с src, не используй относительные импорты.
+
+Все медиа файлы должны храниться в media, путь - ergo_ms/api/media
+Все сторонние программы должны храниться в packages, путь - ergo_ms/api/packages
+Все файлы моделей (.keras, .pkl и т.д.) должны храниться в trained_models, путь - ergo_ms/api/trained_models
+Все эти пути прописаны в django конфиге, ergo_ms/api/src/config/settings/base.py и  ergo_ms/api/src/config/settings/static.py
+
+Не генерируй admin.py файлы и все что связано с админ-панелью Django, она не используется.

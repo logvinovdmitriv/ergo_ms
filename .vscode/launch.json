@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Development System",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/start_dev_system.bat",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Start All Services",
+            "configurations": [
+                "Launch Development System"
+            ],
+            "stopAll": true
+        }
+    ]
+} 

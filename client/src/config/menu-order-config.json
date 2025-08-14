@@ -1,0 +1,28 @@
+{
+  "menuOrder": [
+    "User",
+    "Settings", 
+
+    "Email",
+    "Messenger",
+    "BI",
+    
+    "CRM",
+
+    "LMS",
+    "EducationAnalyticModule",
+    "ExpertSystem",
+
+    "AssetsAnalyse",
+    
+    "ErgoCities"
+  ],
+  
+  "separators": {
+    "0": "Настройки",
+    "2": "Модули",
+    "5": "Обучение",
+    "8": "Трендовая аналитика",
+    "9": "Цифровая лаборатория"
+  }
+} 
