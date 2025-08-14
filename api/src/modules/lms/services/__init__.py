@@ -167,30 +167,27 @@ class ProgressTrackingService:
 
     @staticmethod
     def calculate_course_progress(user: User, subject: Subject) -> float:
-        """Рассчитать прогресс пользователя по курсу"""
-        from .models import Lesson
+        """Рассчитать прогресс пользователя по курсу."""
 
-        # Получить все видимые уроки курса
-        total_lessons = Lesson.objects.filter(
-            theme__subject=subject,
-            is_visible=True
-        ).count()
+        # В текущей версии системы подробное отслеживание
+        # завершения уроков ещё не реализовано. Ранее здесь
+        # выполнялась попытка вычислить прогресс через
+        # количество уроков, однако при отсутствии данных о
+        # завершённых уроках метод всегда возвращал ``0`` и
+        # перезаписывал поле ``progress_percentage`` у записи
+        # Enrollment, тем самым обнуляя уже посчитанный прогресс.
 
-        if total_lessons == 0:
+        # Чтобы не затирать корректный прогресс, просто читаем
+        # значение из Enrollment и возвращаем его. Когда в
+        # проекте появится полноценный механизм отслеживания
+        # LessonProgress, сюда можно будет добавить фактический
+        # расчёт.
+
+        enrollment = Enrollment.objects.filter(student=user, subject=subject).first()
+        if not enrollment:
             return 0.0
 
-        # Подсчитать завершенные уроки (простая логика)
-        completed_lessons = 0
-
-        progress = (completed_lessons / total_lessons) * 100
-
-        # Обновить прогресс в записи на курс
-        enrollment = Enrollment.objects.filter(student=user, subject=subject).first()
-        if enrollment:
-            enrollment.progress_percentage = min(progress, 100)
-            enrollment.save()
-
-        return progress
+        return float(enrollment.progress_percentage)
 
     @staticmethod
     def update_course_completion(user: User, subject: Subject):
