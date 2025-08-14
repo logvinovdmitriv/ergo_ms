@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/../api"
+cd "$(dirname "$0")/../../api"
+
+# Ensure env for local dev (non-docker)
+export API_DEPLOY_TYPE=${API_DEPLOY_TYPE:-development}
+export API_SECRET_KEY=${API_SECRET_KEY:-dev}
 
 if [ ! -d .venv ]; then
   echo "[dev_api] Creating virtualenv .venv"
@@ -21,7 +25,7 @@ elif [ -f pyproject.toml ]; then
   pip install . || true
 fi
 
-echo "[dev_api] Starting Django server..."
+echo "[dev_api] Starting Django server on :8000"
 exec python src/manage.py runserver 0.0.0.0:8000
 
 

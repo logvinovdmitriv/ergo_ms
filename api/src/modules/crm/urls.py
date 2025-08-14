@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ProjectViewSet, TaskViewSet, TaskCommentViewSet, TimeLogViewSet, UserViewSet,
     ProjectStatusViewSet, ProjectPriorityViewSet, TaskStatusViewSet, TaskPriorityViewSet,
-    OrganizationViewSet, OrganizationInviteViewSet, TeamViewSet)
+    OrganizationViewSet, OrganizationInviteViewSet, TeamViewSet, UploadFileView)
 
 router = DefaultRouter()
 router.register(r'projects', ProjectViewSet)
@@ -23,4 +23,8 @@ router.register(r'teams', TeamViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
+    # Подключаем стратегические проекты по ожидаемому клиентом префиксу
+    path('strategic-projects/', include('src.modules.crm.strategic_projects.urls')),
+    # Отдельная точка загрузки файлов для фронтенда (без префикса tasks)
+    path('upload-file/', UploadFileView.as_view()),
 ]
