@@ -1,12 +1,15 @@
-# Powershell dev launcher for Windows
+# Powershell dev launcher for Windows (API only)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $apiPath = Join-Path $root 'api'
 Set-Location $apiPath
 
-# Pick Python
+# Ensure env for local dev (non-docker)
+if (-not $env:API_DEPLOY_TYPE) { $env:API_DEPLOY_TYPE = 'development' }
+if (-not $env:API_SECRET_KEY)  { $env:API_SECRET_KEY  = 'dev' }
+
 function Pick-Python {
   if (Get-Command py -ErrorAction SilentlyContinue) { return 'py -3' }
   elseif (Get-Command python -ErrorAction SilentlyContinue) { return 'python' }
