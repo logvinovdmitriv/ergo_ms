@@ -18,10 +18,11 @@
         {
             "label": "Client",
             "type": "shell",
-            "command": "npm",
-            "args": ["run", "dev"],
-            "options": {
-                "cwd": "${workspaceFolder}/client"
+            "command": "bash",
+            "args": ["scripts/client/dev.sh"],
+            "windows": {
+                "command": "powershell",
+                "args": ["-ExecutionPolicy", "Bypass", "-File", "scripts/client/dev.ps1"]
             },
             "presentation": {
                 "echo": true,
@@ -36,10 +37,11 @@
         {
             "label": "API",
             "type": "shell",
-            "command": "cmd",
-            "args": ["/c", "${workspaceFolder}/api/.venv/Scripts/activate.bat && api dev"],
-            "options": {
-                "cwd": "${workspaceFolder}/api"
+            "command": "bash",
+            "args": ["scripts/api/dev.sh"],
+            "windows": {
+                "command": "powershell",
+                "args": ["-ExecutionPolicy", "Bypass", "-File", "scripts/api/dev.ps1"]
             },
             "presentation": {
                 "echo": true,
@@ -54,10 +56,11 @@
         {
             "label": "Celery Worker",
             "type": "shell",
-            "command": "cmd",
-            "args": ["/c", "${workspaceFolder}/api/.venv/Scripts/activate.bat && api start_celery_worker"],
-            "options": {
-                "cwd": "${workspaceFolder}/api"
+            "command": "bash",
+            "args": ["-lc", "cd ${workspaceFolder}/api && source .venv/bin/activate 2>/dev/null || true; celery -A src.config.celery:celery_app worker -l INFO"],
+            "windows": {
+                "command": "powershell",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "cd api; if (Test-Path .venv/\u0053cripts/Activate.ps1) { . .\\.venv\\Scripts\\Activate.ps1 }; celery -A src.config.celery:celery_app worker -l INFO"]
             },
             "presentation": {
                 "echo": true,
@@ -72,10 +75,11 @@
         {
             "label": "Celery Beat",
             "type": "shell",
-            "command": "cmd",
-            "args": ["/c", "${workspaceFolder}/api/.venv/Scripts/activate.bat && api start_celery_beat"],
-            "options": {
-                "cwd": "${workspaceFolder}/api"
+            "command": "bash",
+            "args": ["-lc", "cd ${workspaceFolder}/api && source .venv/bin/activate 2>/dev/null || true; celery -A src.config.celery:celery_app beat -l INFO"],
+            "windows": {
+                "command": "powershell",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "cd api; if (Test-Path .venv/\u0053cripts/Activate.ps1) { . .\\.venv\\Scripts\\Activate.ps1 }; celery -A src.config.celery:celery_app beat -l INFO"]
             },
             "presentation": {
                 "echo": true,

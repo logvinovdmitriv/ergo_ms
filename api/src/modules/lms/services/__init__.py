@@ -17,7 +17,7 @@ from src.modules.lms.models import (
 
 class NotificationService:
     """Сервис для управления уведомлениями"""
-    
+
     @staticmethod
     def create_notification(
         recipient: User,
@@ -36,7 +36,7 @@ class NotificationService:
             message=message,
             related_object_id=related_object_id
         )
-    
+
     @staticmethod
     def notify_assignment_due(assignment: Assignment):
         """Уведомить о крайнем сроке задания"""
@@ -44,7 +44,7 @@ class NotificationService:
             subject=assignment.lesson.theme.subject,
             status='active'
         ).values_list('student', flat=True)
-        
+
         for student_id in enrolled_students:
             student = User.objects.get(id=student_id)
             NotificationService.create_notification(
@@ -54,7 +54,7 @@ class NotificationService:
                 message=f'До крайнего срока задания "{assignment.title}" осталось меньше 24 часов.',
                 related_object_id=assignment.id
             )
-    
+
     @staticmethod
     def notify_grade_posted(grade: Grade):
         """Уведомить о выставленной оценке"""
@@ -66,7 +66,7 @@ class NotificationService:
             sender=grade.grader,
             related_object_id=grade.id
         )
-    
+
     @staticmethod
     def notify_new_forum_post(post: ForumPost):
         """Уведомить о новом посте на форуме"""
@@ -74,7 +74,7 @@ class NotificationService:
         discussion_participants = ForumPost.objects.filter(
             discussion=post.discussion
         ).values_list('author', flat=True).distinct()
-        
+
         for participant_id in discussion_participants:
             if participant_id != post.author.id:
                 participant = User.objects.get(id=participant_id)
@@ -86,7 +86,7 @@ class NotificationService:
                     sender=post.author,
                     related_object_id=post.id
                 )
-    
+
     @staticmethod
     def notify_badge_awarded(user_badge: UserBadge):
         """Уведомить о получении значка"""
@@ -102,7 +102,7 @@ class NotificationService:
 
 class BadgeService:
     """Сервис для автоматического присуждения значков"""
-    
+
     @staticmethod
     def check_and_award_badges(user: User, context: str = None):
         """Проверить и присудить значки пользователю"""
@@ -117,7 +117,7 @@ class BadgeService:
             BadgeService._check_course_completion_badges(user)
             BadgeService._check_test_badges(user)
             BadgeService._check_forum_badges(user)
-    
+
     @staticmethod
     def _check_course_completion_badges(user: User):
         """Проверить значки за завершение курсов"""
@@ -125,14 +125,14 @@ class BadgeService:
             student=user,
             status='completed'
         ).count()
-        
+
         # Значок за первый завершенный курс
         if completed_courses >= 1:
             badge = Badge.objects.filter(badge_type='course_completion').first()
             if badge and not UserBadge.objects.filter(user=user, badge=badge).exists():
                 user_badge = UserBadge.objects.create(user=user, badge=badge)
                 NotificationService.notify_badge_awarded(user_badge)
-    
+
     @staticmethod
     def _check_test_badges(user: User):
         """Проверить значки за тесты"""
@@ -141,19 +141,19 @@ class BadgeService:
             score=100,
             is_passed=True
         ).count()
-        
+
         # Значок за идеальный результат теста
         if perfect_tests >= 1:
             badge = Badge.objects.filter(badge_type='perfect_quiz').first()
             if badge and not UserBadge.objects.filter(user=user, badge=badge).exists():
                 user_badge = UserBadge.objects.create(user=user, badge=badge)
                 NotificationService.notify_badge_awarded(user_badge)
-    
+
     @staticmethod
     def _check_forum_badges(user: User):
         """Проверить значки за участие в форумах"""
         forum_posts = ForumPost.objects.filter(author=user).count()
-        
+
         # Значок за активное участие в форумах
         if forum_posts >= 10:
             badge = Badge.objects.filter(badge_type='active_participant').first()
@@ -164,58 +164,55 @@ class BadgeService:
 
 class ProgressTrackingService:
     """Сервис для отслеживания прогресса"""
-    
+
     @staticmethod
     def calculate_course_progress(user: User, subject: Subject) -> float:
-        """Рассчитать прогресс пользователя по курсу"""
-        from .models import Lesson
-        
-        # Получить все видимые уроки курса
-        total_lessons = Lesson.objects.filter(
-            theme__subject=subject,
-            is_visible=True
-        ).count()
-        
-        if total_lessons == 0:
-            return 0.0
-        
-        # Подсчитать завершенные уроки (простая логика)
-        completed_lessons = 0
-        
-        progress = (completed_lessons / total_lessons) * 100
-        
-        # Обновить прогресс в записи на курс
+        """Рассчитать прогресс пользователя по курсу."""
+
+        # В текущей версии системы подробное отслеживание
+        # завершения уроков ещё не реализовано. Ранее здесь
+        # выполнялась попытка вычислить прогресс через
+        # количество уроков, однако при отсутствии данных о
+        # завершённых уроках метод всегда возвращал ``0`` и
+        # перезаписывал поле ``progress_percentage`` у записи
+        # Enrollment, тем самым обнуляя уже посчитанный прогресс.
+
+        # Чтобы не затирать корректный прогресс, просто читаем
+        # значение из Enrollment и возвращаем его. Когда в
+        # проекте появится полноценный механизм отслеживания
+        # LessonProgress, сюда можно будет добавить фактический
+        # расчёт.
+
         enrollment = Enrollment.objects.filter(student=user, subject=subject).first()
-        if enrollment:
-            enrollment.progress_percentage = min(progress, 100)
-            enrollment.save()
-        
-        return progress
-    
+        if not enrollment:
+            return 0.0
+
+        return float(enrollment.progress_percentage)
+
     @staticmethod
     def update_course_completion(user: User, subject: Subject):
         """Обновить статус завершения курса"""
         progress = ProgressTrackingService.calculate_course_progress(user, subject)
-        
+
         if progress >= 100:
             enrollment = Enrollment.objects.filter(student=user, subject=subject).first()
             if enrollment and enrollment.status != 'completed':
                 enrollment.status = 'completed'
                 enrollment.completion_date = timezone.now()
                 enrollment.save()
-                
+
                 # Присудить значки за завершение курса
                 BadgeService.check_and_award_badges(user, 'course_completion')
 
 
 class ReportsService:
     """Сервис для генерации отчетов"""
-    
+
     @staticmethod
     def generate_student_report(user: User) -> Dict[str, Any]:
         """Генерировать отчет по студенту"""
         enrollments = Enrollment.objects.filter(student=user)
-        
+
         report = {
             'user_info': {
                 'id': user.id,
@@ -250,14 +247,14 @@ class ReportsService:
                 'posts': ForumPost.objects.filter(author=user).count(),
             }
         }
-        
+
         return report
-    
+
     @staticmethod
     def generate_course_report(subject: Subject) -> Dict[str, Any]:
         """Генерировать отчет по курсу"""
         enrollments = Enrollment.objects.filter(subject=subject)
-        
+
         report = {
             'course_info': {
                 'id': subject.id,
@@ -296,42 +293,42 @@ class ReportsService:
                 ).count(),
             }
         }
-        
+
         return report
 
 
 class GradingService:
     """Сервис для автоматического оценивания"""
-    
+
     @staticmethod
     def auto_grade_test(test_attempt: TestAttempt):
         """Автоматически оценить тест"""
         total_points = 0
         earned_points = 0
-        
+
         for student_answer in test_attempt.answers.all():
             question = student_answer.question
             total_points += question.points
-            
+
             # Проверить правильность ответа
             student_answer.check_correctness()
-            
+
             if student_answer.is_correct:
                 earned_points += question.points
-        
+
         # Рассчитать процент
         if total_points > 0:
             score = (earned_points / total_points) * 100
         else:
             score = 0
-        
+
         # Обновить попытку
         test_attempt.score = score
         test_attempt.is_passed = score >= test_attempt.test.passing_score
         test_attempt.completed_at = timezone.now()
         test_attempt.status = 'completed'
         test_attempt.save()
-        
+
         # Создать запись об оценке
         Grade.objects.create(
             subject=test_attempt.test.lesson.theme.subject,
@@ -339,18 +336,18 @@ class GradingService:
             grade=score,
             grade_type='automatic'
         )
-        
+
         # Присудить значки
         if test_attempt.is_passed:
             BadgeService.check_and_award_badges(
-                test_attempt.student, 
+                test_attempt.student,
                 'test_completion'
             )
 
 
 class CalendarService:
     """Сервис для работы с календарем"""
-    
+
     @staticmethod
     def create_assignment_deadline_event(assignment: Assignment):
         """Создать событие календаря для крайнего срока задания"""
@@ -366,7 +363,7 @@ class CalendarService:
                 ),
                 created_by=assignment.lesson.theme.subject.teacher
             )
-    
+
     @staticmethod
     def create_test_availability_events(test: Test):
         """Создать события календаря для доступности теста"""
@@ -379,7 +376,7 @@ class CalendarService:
                 start_date=test.available_from,
                 created_by=test.lesson.theme.subject.teacher
             )
-        
+
         if test.available_until:
             CalendarEvent.objects.create(
                 subject=test.lesson.theme.subject,
@@ -393,7 +390,7 @@ class CalendarService:
 
 class EmailService:
     """Сервис для отправки email уведомлений"""
-    
+
     @staticmethod
     def send_welcome_email(user: User):
         """Отправить приветственное письмо"""
@@ -406,7 +403,7 @@ class EmailService:
                 recipient_list=[user.email],
                 fail_silently=True
             )
-    
+
     @staticmethod
     def send_assignment_reminder(user: User, assignment: Assignment):
         """Отправить напоминание о задании"""
@@ -423,7 +420,7 @@ class EmailService:
 
 class IntegrationService:
     """Сервис для интеграции с внешними системами"""
-    
+
     @staticmethod
     def sync_user_data(user: User) -> Dict[str, Any]:
         """Синхронизировать данные пользователя с внешними системами"""
@@ -433,9 +430,9 @@ class IntegrationService:
             'synced_at': timezone.now(),
             'external_systems': []
         }
-        
+
         return sync_result
-    
+
     @staticmethod
     def export_course_data(subject: Subject, format_type: str = 'json') -> str:
         """Экспортировать данные курса"""
@@ -449,7 +446,7 @@ class IntegrationService:
             'themes': [],
             'enrollments_count': Enrollment.objects.filter(subject=subject).count(),
         }
-        
+
         # Добавить темы и уроки
         for theme in subject.theme_set.all():
             theme_data = {
@@ -458,7 +455,7 @@ class IntegrationService:
                 'description': theme.description,
                 'lessons': []
             }
-            
+
             for lesson in theme.lesson_set.all():
                 lesson_data = {
                     'id': lesson.id,
@@ -467,10 +464,10 @@ class IntegrationService:
                     'description': lesson.description,
                 }
                 theme_data['lessons'].append(lesson_data)
-            
+
             course_data['themes'].append(theme_data)
-        
+
         if format_type == 'json':
             return json.dumps(course_data, ensure_ascii=False, indent=2)
-        
-        return course_data 
+
+        return course_data

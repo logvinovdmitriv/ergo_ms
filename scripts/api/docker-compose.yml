@@ -1,0 +1,75 @@
+name: ergo_ms_api
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: ergo_ms
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  migrator:
+    build:
+      context: ../../api
+    working_dir: /app
+    env_file:
+      - ../../.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/ergo_ms
+      AUTO_MIGRATE: "0"
+      AUTO_MAKEMIGRATIONS: "0"
+      API_DEPLOY_TYPE: development
+      API_SECRET_KEY: dev
+    volumes:
+      - ../../api:/app
+    entrypoint: ["/entrypoint.sh"]
+    command: ["/bin/sh", "-c", "echo '[migrator] Starting migration process'; if [ \"${AUTO_MAKEMIGRATIONS:-0}\" = \"1\" ]; then echo '[migrator] AUTO_MAKEMIGRATIONS=1: generating migrations'; python src/manage.py makemigrations --noinput || true; else echo '[migrator] AUTO_MAKEMIGRATIONS=0: skipping makemigrations'; fi; echo '[migrator] Applying migrations'; python src/manage.py migrate --noinput"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ../../api
+    working_dir: /app
+    env_file:
+      - ../../.env
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/ergo_ms
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      AUTO_MIGRATE: "0"
+      AUTO_MAKEMIGRATIONS: "0"
+      API_DEPLOY_TYPE: development
+      API_SECRET_KEY: dev
+    volumes:
+      - ../../api:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+
+volumes:
+  pgdata: {}
+
+

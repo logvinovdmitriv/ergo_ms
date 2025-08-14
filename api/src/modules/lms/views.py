@@ -240,10 +240,6 @@ class SubjectViewSet(SwaggerSafeMixin, BaseLMSViewSet):
             return Subject.objects.none()
             
         queryset = get_user_accessible_subjects(user)
-        print(f"🔍 SubjectViewSet.get_queryset() для пользователя: {user.username}")
-        print(f"🔍 Возвращаем курсы: {queryset.count()}")
-        if queryset.count() > 0:
-            print(f"🔍 Первые курсы: {[s.name for s in queryset[:3]]}")
         return queryset
     
     def get_serializer_class(self):
@@ -486,28 +482,21 @@ class ThemeViewSet(SwaggerSafeMixin, SubjectRelatedViewSet, ToggleVisibilityMixi
             
         user_roles = user.roles.values_list('role', flat=True)
         
-        print(f"🔍 ThemeViewSet.get_queryset() для пользователя: {user.username}")
-        print(f"🔍 Роли пользователя: {list(user_roles)}")
-        
         if 'admin' in user_roles:
             queryset = Theme.objects.all()
-            print(f"🔍 Администратор - возвращаем все темы: {queryset.count()}")
             return queryset
         elif 'teacher' in user_roles:
             queryset = Theme.objects.filter(
                 Q(subject__teacher=user) | Q(subject__is_published=True)
             ).distinct()
-            print(f"🔍 Преподаватель - возвращаем темы: {queryset.count()}")
             return queryset
         else:
             # Студенты видят темы курсов, на которые они записаны
             enrolled_subjects = Enrollment.objects.filter(
                 student=user, status='active'
             ).values_list('subject', flat=True)
-            print(f"🔍 Студент записан на курсы: {list(enrolled_subjects)}")
             
             queryset = Theme.objects.filter(subject__in=enrolled_subjects)
-            print(f"🔍 Студент - возвращаем темы: {queryset.count()}")
             return queryset
     
     def get_serializer_class(self):
@@ -523,10 +512,7 @@ class ThemeViewSet(SwaggerSafeMixin, SubjectRelatedViewSet, ToggleVisibilityMixi
         user_roles = user.roles.values_list('role', flat=True)
         subject = serializer.validated_data.get('subject')
         
-        print(f"🔍 ThemeViewSet.perform_create() для пользователя: {user.username}")
-        print(f"🔍 Роли пользователя: {list(user_roles)}")
-        print(f"🔍 Данные для создания темы: {serializer.validated_data}")
-        print(f"🔍 Курс для темы: {subject}")
+        
         
         # Проверяем права на создание темы
         if 'admin' not in user_roles:
@@ -625,32 +611,25 @@ class LessonViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
             
         user_roles = user.roles.values_list('role', flat=True)
         
-        print(f"🔍 LessonViewSet.get_queryset() для пользователя: {user.username}")
-        print(f"🔍 Роли пользователя: {list(user_roles)}")
-        
         if 'admin' in user_roles:
             queryset = Lesson.objects.all()
-            print(f"🔍 Администратор - возвращаем все уроки: {queryset.count()}")
             return queryset
         elif 'teacher' in user_roles or hasattr(user, 'teacher'):
             # Преподаватели видят уроки своих курсов + уроки опубликованных курсов
             queryset = Lesson.objects.filter(
                 Q(theme__subject__teacher=user) | Q(theme__subject__is_published=True)
             ).distinct()
-            print(f"🔍 Преподаватель - возвращаем уроки: {queryset.count()}")
             return queryset
         else:
             # Студенты видят только видимые уроки курсов, на которые они записаны
             enrolled_subjects = Enrollment.objects.filter(
                 student=user, status='active'
             ).values_list('subject', flat=True)
-            print(f"🔍 Студент записан на курсы: {list(enrolled_subjects)}")
             
             queryset = Lesson.objects.filter(
                 theme__subject__in=enrolled_subjects,
                 is_visible=True
             )
-            print(f"🔍 Студент - возвращаем видимые уроки: {queryset.count()}")
             return queryset
     
     def get_serializer_class(self):

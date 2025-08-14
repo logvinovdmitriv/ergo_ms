@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from rest_framework import viewsets, status, filters
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -177,6 +178,37 @@ class TeamViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
         TeamMember.objects.filter(team=team, user_id=user_id).delete()
         return Response({'message': 'Участник удален'})
 
+
+class UploadFileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Загрузка файла для задач/проектов (универсальная точка)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'file': openapi.Schema(type=openapi.TYPE_STRING, format='binary'),
+                'task_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+            },
+        )
+    )
+    def post(self, request):
+        uploaded = request.FILES.get('file')
+        task_id = request.data.get('task_id')
+        if not uploaded:
+            return Response({'error': 'file is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if task_id:
+            try:
+                task = Task.objects.get(id=task_id)
+            except Task.DoesNotExist:
+                return Response({'error': 'task not found'}, status=status.HTTP_404_NOT_FOUND)
+            TaskAttachment.objects.create(
+                task=task,
+                file=uploaded,
+                filename=uploaded.name,
+                uploaded_by=request.user
+            )
+        return Response({'filename': uploaded.name})
 
 class OrganizationInviteViewSet(SwaggerSafeMixin, viewsets.ViewSet):
     """ViewSet для приглашений в организации"""

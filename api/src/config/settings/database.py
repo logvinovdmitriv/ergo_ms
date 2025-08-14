@@ -27,6 +27,7 @@ import logging.config
 from config.settings.logger import LOGGING
 from src.config.settings.static import RESOURCES_DIR
 from src.config.settings.base import SYSTEM_DIR
+from src.config.env import env
 
 # Явная инициализация логирования
 logging.config.dictConfig(LOGGING)
@@ -50,9 +51,20 @@ def get_database_configs() -> Dict:
     """
     config_path = SYSTEM_DIR / 'databases.yaml'
     if not config_path.exists():
+        # Если нет databases.yaml — пробуем прочитать DATABASE_URL из .env
+        db_cfg = None
+        try:
+            db_cfg = env.db('DATABASE_URL', default=None)
+        except Exception:
+            db_cfg = None
+        if db_cfg:
+            logger.warning("databases.yaml не найден. Используем DATABASE_URL из .env")
+            return {
+                'default': db_cfg
+            }
+        # Последний резерв — пустая конфигурация, дальше сработает fallback на SQLite
         error_msg = f"Файл конфигурации баз данных не найден: {config_path}"
         logger.error(error_msg)
-
         raise ImproperlyConfigured(error_msg)
     
     try:

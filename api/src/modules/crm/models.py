@@ -145,8 +145,16 @@ class Organization(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
+        # Гарантируем уникальный slug. Если slug уже задан (например, при создании),
+        # мы его сохраняем, лишь при конфликте добавляем суффикс -2, -3, ...
+        base_slug = self.slug or slugify(self.name) or 'organization'
+        candidate = base_slug
+        suffix = 1
+        # Исключаем текущий объект при проверке, чтобы не трогать slug при обновлении
+        while Organization.objects.filter(slug=candidate).exclude(pk=self.pk).exists():
+            suffix += 1
+            candidate = f"{base_slug}-{suffix}"
+        self.slug = candidate
         super().save(*args, **kwargs)
 
 
