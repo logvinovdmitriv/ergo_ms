@@ -8,7 +8,7 @@ from datetime import timedelta
 from typing import List, Dict, Any
 import json
 
-from ..models import (
+from src.modules.lms.models import (
     Subject, Enrollment, Grade, Test, TestAttempt, Assignment,
     SubmittedAssignment, Badge, UserBadge, Notification,
     CalendarEvent, Forum, ForumPost, UserProfile
